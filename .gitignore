@@ -1,1 +1,8 @@
+# past/old work to be ignored
 legend/
+
+# ignore virtual environment folders
+.venv/
+
+# ignore .env files in the api folder
+api/gemini/.env

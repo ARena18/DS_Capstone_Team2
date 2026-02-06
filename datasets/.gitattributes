@@ -1,0 +1,2 @@
+Stop_level filter=lfs diff=lfs merge=lfs -text
+Stop_level.csv filter=lfs diff=lfs merge=lfs -text

@@ -2,3 +2,4 @@ Trip_Level_Ridership(in).csv filter=lfs diff=lfs merge=lfs -text
 datasets/Stop_level.csv filter=lfs diff=lfs merge=lfs -text
 datasets/cleaned/Stop_level_cleaned.csv filter=lfs diff=lfs merge=lfs -text
 datasets/Trip_level.csv filter=lfs diff=lfs merge=lfs -text
+datasets/cleaned/Trip_level_cleaned.csv filter=lfs diff=lfs merge=lfs -text

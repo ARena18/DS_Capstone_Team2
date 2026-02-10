@@ -1,8 +1,11 @@
 # past/old work to be ignored
 legend/
+api/hf_mistral/
+api/cerebras/
 
 # ignore virtual environment folders
 .venv/
 
 # ignore .env files in the api folder
 api/gemini/.env
+api/hf_mistral/.env

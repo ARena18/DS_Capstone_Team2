@@ -130,7 +130,7 @@ st.markdown(
 st.markdown(
     """
     <div class="header">
-        <div class="header-icon">🚖</div>
+        <div class="header-icon">🚌</div>
         <div>
             <div class="header-text">King County Transit Chat</div>
             <div class="header-subtext">Smart assistant for routes, schedules & transit insights</div>

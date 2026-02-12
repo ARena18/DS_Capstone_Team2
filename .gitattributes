@@ -5,3 +5,5 @@ datasets/Trip_level.csv filter=lfs diff=lfs merge=lfs -text
 datasets/cleaned/Trip_level_cleaned.csv filter=lfs diff=lfs merge=lfs -text
 datasets/raw/GIS_transit_stop.xlsx filter=lfs diff=lfs merge=lfs -text
 datasets/raw/Trip_level.csv filter=lfs diff=lfs merge=lfs -text
+datasets/cleaned/Stop_level_db.csv filter=lfs diff=lfs merge=lfs -text
+datasets/cleaned/Trip_level_db.csv filter=lfs diff=lfs merge=lfs -text

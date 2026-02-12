@@ -1,14 +1,19 @@
 # app.py
-from langchain_ollama.llms import OllamaLLM
 from langchain_ollama import ChatOllama
 import streamlit as st
 
 # --- Configure the LLM ---
-#llm = OllamaLLM(model="llama2") # LangChain wrapper
 llm = ChatOllama(
     model="llama3.2",   #llama3.2 model supports tool binding
     temperature=0,
 )
+
+""" Langchain wrapper
+# Abandoned in favor of direct ChatOllama usage which supports tool binding.
+
+from langchain_ollama.llms import OllamaLLM
+llm = OllamaLLM(model="llama2") # LangChain wrapper
+"""
 
 # --- Configure Streamlit page ---
 st.set_page_config(page_title="King County Transit Chat", page_icon="🚌", layout="centered")

@@ -3,9 +3,11 @@ legend/
 api/hf_mistral/
 api/cerebras/
 
-# ignore virtual environment folders
+# ignore virtual environment and pycache folders
 .venv/
+ollama/langchain_tools/__pycache__/
 
-# ignore .env files in the api folder
+# ignore .env files
 api/gemini/.env
-api/hf_mistral/.env.DS_Store
+api/hf_mistral/.env
+ollama/langchain_tools/.env

@@ -1,10 +1,11 @@
 # app.py
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_ollama import ChatOllama
 from langchain.tools import tool, ToolRuntime
 import streamlit as st
 
 from query_tools import *
+print("\n\n")
 
 # --- Configure the LLM ---
 llm = ChatOllama(
@@ -180,43 +181,31 @@ if prompt:
         # Call Ollama through ChatOllama
         try:
             # Configure the question prompt
-            systemInstructions = "You are a helpful assistant focused on King County Metro. Format the response clearly, using lists if appropriate." + \
-                                 "If you do not have the tools to answer the question, reply '" + SUPPORTED_TOOL_MESSAGE + \
-                                 "'. If you do have the tools, answer without mentioning tools."
-            questionPrompt = [
-                (
-                    "system",
-                    systemInstructions
-                ),
-                (
-                    "user",
-                    prompt
-                )
-            ]
+            systemInstructions = "You are a helpful assistant focused on King County Metro. Answer without mentioning tools nor dictionaries." + \
+                                 "If you do not have the tools to answer the question, reply with '" + SUPPORTED_TOOL_MESSAGE + "' only."
+            
+            systemMessages = [SystemMessage(systemInstructions),
+                              HumanMessage(prompt)]
 
             # Get response from LLM
-            response = llm.invoke(questionPrompt)
+            response = llm.invoke(systemMessages)
             answer = response.content
 
             # Handle tool invocation
             if response.tool_calls:
                 print("Handling tool invocation...")
-                toolMessages = [HumanMessage(prompt)]
-                toolMessages.append(response)
+                systemMessages.append(response)
 
-                # Get answer from tool call
-                answer = ""
+                # Get tool call results
                 for tool_call in response.tool_calls:
                     selected_tool = {"operation_period": get_operation_period}[tool_call["name"].lower()]
                     tool_msg = selected_tool.invoke(tool_call)
-                    toolMessages.append(tool_msg)
-                    answer += tool_msg.content + "\n"
-                print(toolMessages)
+                    systemMessages.append(tool_msg)
+                print(systemMessages)   # logging
 
-                # Get response from LLM         - In-progress : currently response mentions tool call...
-                #response = llm.invoke(toolMessages)
-                #answer = response.content
-                #print(response)
+                # Get response from LLM
+                response = llm.invoke(systemMessages)
+                answer = response.content
 
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."

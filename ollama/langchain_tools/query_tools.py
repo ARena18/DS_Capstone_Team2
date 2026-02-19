@@ -7,7 +7,7 @@ from query import *
 
 # --- Declare tools ---
 SUPPORTED_TOOL_MESSAGE = "I am not equipped with the knowledge to answer that question."  + \
-                         "Instead, I can find you the following information: operation period."
+                         "Instead, I can find you the following information: operation period, (functionality to be added...)."
 
 @tool("operation_period")
 def get_operation_period():

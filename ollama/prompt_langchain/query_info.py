@@ -114,6 +114,116 @@ CREATE TABLE stops_reference (
 -- Create index
 CREATE INDEX idx_stops_ref_lookup ON stops_reference(stop_id, eff_start_date, eff_end_date);
 CREATE INDEX idx_stops_ref_zip ON stops_reference(gis_zip_cd);
+"""
+
+
+OLD_SCHEMA = """
+DROP TABLE IF EXISTS trips CASCADE;
+DROP TABLE IF EXISTS stop_daily CASCADE;
+DROP TABLE IF EXISTS stops_reference CASCADE;
+
+-- ================================================================
+-- TABLE: trips
+-- Description: Raw trip-level operational data from King County Metro
+-- Source: Trip-level dataset from APC (Automated Passenger Counter)
+-- ================================================================
+CREATE TABLE trips (
+    -- Identifiers
+    trip_id BIGINT NOT NULL,
+	operation_date DATE NOT NULL,
+    service_change_num VARCHAR(10) NOT NULL,
+    service_rte_num VARCHAR(20) NOT NULL,
+    
+    -- Time Information
+    sched_start_time text NOT NULL,
+    actual_start_time text,
+    sched_end_time text NOT NULL,
+    actual_end_time text,
+    
+    -- Trip Characteristics
+    express_local_cd CHAR(1) NOT NULL CHECK (express_local_cd IN ('E', 'L')),
+    inbd_outbd_cd CHAR(1) NOT NULL CHECK (inbd_outbd_cd IN ('I', 'O', '0')),
+    
+    -- Day Type Information
+    sched_day_type_coded_num SMALLINT NOT NULL CHECK (sched_day_type_coded_num IN (0, 1, 2, 6)),
+    day_code VARCHAR(3) NOT NULL CHECK (day_code IN ('WK', 'SA', 'SU', 'HOL')),
+    time_period VARCHAR(20) NOT NULL,
+    
+    -- Ridership Metrics
+    psngr_boardings NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (psngr_boardings >= 0),
+    psngr_alightings NUMERIC(10, 2) NOT NULL DEFAULT 0 CHECK (psngr_alightings >= 0),
+    max_psngr_load NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (max_psngr_load >= 0),
+    
+    -- Capacity Metrics
+    crowding_threshold_nbr INTEGER NOT NULL CHECK (crowding_threshold_nbr > 0),
+
+	CONSTRAINT pk_trips PRIMARY KEY (trip_id, operation_date)
+);
+
+-- Indexes for common query patterns
+CREATE INDEX idx_trips_operation_date ON trips(operation_date);
+CREATE INDEX idx_trips_route_date ON trips(service_rte_num, operation_date);
+CREATE INDEX idx_trips_route ON trips(service_rte_num);
+
+-- ================================================================
+-- TABLE: stop_daily
+-- Description: Daily aggregated stop-level ridership
+-- Source: Stop-level dataset (pre-aggregated by King County Metro)
+-- ================================================================
+CREATE TABLE stop_daily (
+	-- Identifiers
+	operation_date DATE NOT NULL,
+    stop_id VARCHAR(20) NOT NULL,
+	stop_nm VARCHAR(200),
+    service_rte_list VARCHAR(50) NOT NULL,
+
+	-- Date Information
+    sched_day_type_coded_num SMALLINT NOT NULL,
+    day_code VARCHAR(3) NOT NULL,
+    day_name VARCHAR(10) NOT NULL,
+
+	-- Ridership Metrics
+    trips_count INTEGER NOT NULL DEFAULT 0,
+    total_boardings INTEGER NOT NULL DEFAULT 0,
+    total_alightings INTEGER NOT NULL DEFAULT 0,
+    avg_departure_load NUMERIC(10, 2) DEFAULT 0,
+	
+    CONSTRAINT pk_stop_daily PRIMARY KEY (stop_id, operation_date, service_rte_list)
+);
+
+-- Indexes for common query patterns
+CREATE INDEX idx_stop_daily_date ON stop_daily(stop_id, operation_date);
+CREATE INDEX idx_stop_daily_stop ON stop_daily(stop_id);
+
+-- ================================================================
+-- TABLE: stops_reference
+-- Description: GIS transit stop master reference data
+-- Source: GIS_transit_stop.xlsx from King County Metro
+-- ================================================================
+CREATE TABLE stops_reference (
+    stop_id VARCHAR(20) NOT NULL,
+    eff_start_date DATE NOT NULL,
+    eff_end_date DATE,
+
+	-- Location information
+    on_street_nm VARCHAR(200),
+    gps_latitude NUMERIC(10, 7),
+    gps_longitude NUMERIC(11, 7),
+    gis_zip_cd VARCHAR(10),
+	gis_regional_fare_zone VARCHAR(10),
+	
+    change_num INTEGER,
+
+	CONSTRAINT pk_stops_reference PRIMARY KEY (stop_id, eff_start_date),
+	
+    CHECK (eff_end_date IS NULL OR eff_end_date >= eff_start_date),
+    CHECK (gps_latitude IS NULL OR gps_latitude BETWEEN -90 AND 90),
+    CHECK (gps_longitude IS NULL OR gps_longitude BETWEEN -180 AND 180)
+);
+
+-- Create index
+CREATE INDEX idx_stops_ref_lookup ON stops_reference(stop_id, eff_start_date, eff_end_date);
+CREATE INDEX idx_stops_ref_zip ON stops_reference(gis_zip_cd);
 
 -- ================================================================
 -- VIEWS: Calculated Fields as Database Views
@@ -203,6 +313,6 @@ def query_db(query_statement):
                 result = cur.fetchall()
                 return result
 
-
     except (Exception, psycopg2.Error) as error:
         print(f"Error connecting to the database: {error}")
+        return f"Error: {error}"

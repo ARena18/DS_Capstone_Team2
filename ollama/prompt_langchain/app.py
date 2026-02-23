@@ -1,13 +1,23 @@
 # app.py
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_ollama import ChatOllama
 import streamlit as st
+from st_copy import copy_button
 
 from query_info import SCHEMA, query_db
 
+# --- Functions ---
+
+def extractQuery(response):
+    statement = response.content.replace("\n", " ")
+    start_index = statement.rfind("SELECT")
+    end_index = start_index + statement[start_index:].rfind(";")
+    statement = statement[start_index:end_index]
+    return statement
+
 # --- Configure the LLM ---
-llm = ChatOllama(
-    model="llama3.2",   #llama3.2 model supports tool binding
+query_llm = ChatOllama(
+    model="llama3.2",   #model for more accurate sql generation,
     temperature=0,
 )
 
@@ -152,10 +162,23 @@ if "messages" not in st.session_state:
 
 def display_messages():
     """Display all messages in the chat history"""
+    button_count = 0    # count for unique copy buttons
+
     for msg in st.session_state.messages:
         author = "user" if msg["role"] == "user" else "assistant"
         with st.chat_message(author):
             st.write(msg["content"])
+
+            # Add a copy button
+            button_key = f"copy_btn_{button_count}"
+            copy_button(
+                msg["content"],
+                icon="st",  # use Streamlit's code-block icon
+                key=button_key,
+                tooltip="Copy Message",
+                copied_label="Message Copied!"
+            )
+            button_count += 1
 
 # --- Display existing messages ---
 display_messages()
@@ -185,29 +208,46 @@ if prompt:
                               HumanMessage(prompt)]
 
             # Get query response from LLM
-            response = llm.invoke(queryMessages)
-            answer = response.content
+            response = query_llm.invoke(queryMessages)
             print("Query Response:\n", response)
-
-            # Extract SQL query from response
-            statement = response.content.replace("\n", " ")
-            start_index = statement.rfind("SELECT")
-            end_index = start_index + statement[start_index:].rfind(";")
-            statement = statement[start_index:end_index]
-            print("LLM's Query Statement: ", statement)
-
-            # Get result of SQL query
-            result = query_db(statement)
-            print("Query Result: ", result)
-
-            # Configure the question prompt
-            systemInstructions = "You are a helpful assistant who only answers about King County Metro. Do not answer about any other transit systems. The user's prompt can be answered with the following information: " + str(result) + "."
-            systemMessages = [SystemMessage(systemInstructions), HumanMessage(prompt)]
-
-            # Get question response
-            response = llm.invoke(systemMessages)
             answer = response.content
-            print("Final Response:\n", response)
+
+            if "I am not authorized" not in answer:
+                # Extract SQL query from response
+                statement = extractQuery(response)
+                print("LLM's Query Statement: ", statement)
+
+                # Get result of SQL query
+                result = query_db(statement)
+                print("Query Result: ", result)
+
+                fix_count = 0
+                fixPrompt = "The user prompted the following: " + prompt + ". In response, the following SQL query was generated: " + statement + ". However, it led to this " + result + ". Return a corrected SQL query."
+                fixMessages = [SystemMessage(queryInstructions), HumanMessage(fixPrompt)]
+                while "Error" in str(result) and fix_count < 5:
+                    response = query_llm.invoke(fixMessages)
+                    fixMessages.append(AIMessage(response))
+
+                    statement = extractQuery(response)
+                    result = query_db(statement)
+                    fixMessages.append(HumanMessage("The generated SQL gave me the following error: " + str(result) + ". Please generate a corrected query."))
+
+                    print("Fix Attempt " + str(fix_count) + ":\n", result)
+                    fix_count += 1
+
+                if "Error" in str(result):
+                    print("All attempts to fix the query have failed. Returning the error...")
+                    answer = result
+
+                else:
+                    # Configure the question prompt
+                    systemInstructions = "You are a helpful assistant who only answers about King County Metro. Do not answer about any other transit systems. The user's prompt can be answered with the following information: " + str(result) + ". It was retrieved from the database using the following SQL query: " + statement + "."
+                    systemMessages = [SystemMessage(systemInstructions), HumanMessage(prompt)]
+                    
+                    # Get question response
+                    response = query_llm.invoke(systemMessages)
+                    answer = response.content
+                    print("Final Response:\n", response)
 
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."

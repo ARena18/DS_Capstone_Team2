@@ -142,7 +142,9 @@ CREATE TABLE trips (
     
     -- Trip Characteristics
     express_local_cd CHAR(1) NOT NULL CHECK (express_local_cd IN ('E', 'L')),
+    -- rows with the value 'E' are express routes and rows with the value 'L' are local routes
     inbd_outbd_cd CHAR(1) NOT NULL CHECK (inbd_outbd_cd IN ('I', 'O', '0')),
+    -- rows with the value 'I' are inbound routes and rows with the value 'O' are outbound routes
     
     -- Day Type Information
     sched_day_type_coded_num SMALLINT NOT NULL CHECK (sched_day_type_coded_num IN (0, 1, 2, 6)),

@@ -8,7 +8,28 @@ from query_info import SCHEMA, query_db
 
 # --- Functions ---
 
+def display_messages():
+    """Display all messages in the chat history"""
+    button_count = 0    # count for unique copy buttons
+
+    for msg in st.session_state.messages:
+        author = "user" if msg["role"] == "user" else "assistant"
+        with st.chat_message(author):
+            st.write(msg["content"])
+
+            # Add a copy button
+            button_key = f"copy_btn_{button_count}"
+            copy_button(
+                msg["content"],
+                icon="st",  # use Streamlit's code-block icon
+                key=button_key,
+                tooltip="Copy Message",
+                copied_label="Message Copied!"
+            )
+            button_count += 1
+
 def extractQuery(response):
+    """Extract SQL statement from LLM's response"""
     statement = response.content.replace("\n", " ")
     start_index = statement.rfind("SELECT")
     end_index = start_index + statement[start_index:].rfind(";")
@@ -137,7 +158,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header ---
+# Header
 st.markdown(
     """
     <div class="header">
@@ -151,7 +172,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Initialize chat history
+# --- Initialize chat history
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
@@ -160,27 +181,6 @@ if "messages" not in st.session_state:
         }
     ]
 
-def display_messages():
-    """Display all messages in the chat history"""
-    button_count = 0    # count for unique copy buttons
-
-    for msg in st.session_state.messages:
-        author = "user" if msg["role"] == "user" else "assistant"
-        with st.chat_message(author):
-            st.write(msg["content"])
-
-            # Add a copy button
-            button_key = f"copy_btn_{button_count}"
-            copy_button(
-                msg["content"],
-                icon="st",  # use Streamlit's code-block icon
-                key=button_key,
-                tooltip="Copy Message",
-                copied_label="Message Copied!"
-            )
-            button_count += 1
-
-# --- Display existing messages ---
 display_messages()
 
 # --- Handle new user input ---
@@ -203,7 +203,7 @@ if prompt:
         try:
             print("\n*** ---------------------------------------------------- ***\n")   # to separate responses for each prompt
             # Configure the query prompt
-            queryInstructions = "You are a helpful assistant who only answers about King County Metro. There is a database with the folowing schema: " + SCHEMA + ". Create an SQL statement (without using aliases for the tables) to query the database for the information the user requests to read. Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites."    
+            queryInstructions = "You are a helpful assistant who only answers about King County Metro. If the user asks about any other transit systems (e.g. New York transit), state 'I am not authorized to provide information not pertaining to King County Metro.' Do not answer about any other transit systems. Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites. There is a database with the folowing schema: " + SCHEMA + ". Create an SQL statement (without JOIN operations) to query the database for the information the user requests to read."    
             queryMessages = [SystemMessage(queryInstructions),
                               HumanMessage(prompt)]
 
@@ -222,17 +222,19 @@ if prompt:
                 print("Query Result: ", result)
 
                 fix_count = 0
-                fixPrompt = "The user prompted the following: " + prompt + ". In response, the following SQL query was generated: " + statement + ". However, it led to this " + result + ". Return a corrected SQL query."
-                fixMessages = [SystemMessage(queryInstructions), HumanMessage(fixPrompt)]
                 while "Error" in str(result) and fix_count < 5:
+                    fixPrompt = "The user prompted the following: " + prompt + ". In response, the following SQL query was generated: " + statement + ". However, it led to this " + str(result) + ". Return a corrected SQL query. If the query contains a JOIN operation, return a query based only on the trips table."
+                    fixMessages = [SystemMessage(queryInstructions), HumanMessage(fixPrompt)]
                     response = query_llm.invoke(fixMessages)
-                    fixMessages.append(AIMessage(response))
+                    #fixMessages.append(AIMessage(response.content))
 
                     statement = extractQuery(response)
                     result = query_db(statement)
-                    fixMessages.append(HumanMessage("The generated SQL gave me the following error: " + str(result) + ". Please generate a corrected query."))
+                    #fixMessages.append(HumanMessage("The generated SQL gave me the following error: " + str(result) + ". Please generate a corrected query."))
 
-                    print("Fix Attempt " + str(fix_count) + ":\n", result)
+                    print("Fix Attempt " + str(fix_count) + ":")
+                    print("\tNew Query: ", statement)
+                    print("\tNew Result: ", result)
                     fix_count += 1
 
                 if "Error" in str(result):
@@ -240,14 +242,17 @@ if prompt:
                     answer = result
 
                 else:
-                    # Configure the question prompt
-                    systemInstructions = "You are a helpful assistant who only answers about King County Metro. Do not answer about any other transit systems. The user's prompt can be answered with the following information: " + str(result) + ". It was retrieved from the database using the following SQL query: " + statement + "."
-                    systemMessages = [SystemMessage(systemInstructions), HumanMessage(prompt)]
-                    
-                    # Get question response
-                    response = query_llm.invoke(systemMessages)
-                    answer = response.content
-                    print("Final Response:\n", response)
+                    if result:
+                        # Configure the question prompt
+                        systemInstructions = "You are a helpful assistant who only answers about King County Metro. The user's prompt can be answered with the following information: " + str(result) + ". The information was retrieved from the database using the following SQL query: " + statement + "."
+                        systemMessages = [SystemMessage(systemInstructions), HumanMessage(prompt)]
+                        
+                        # Get question response
+                        response = query_llm.invoke(systemMessages)
+                        answer = response.content
+                        print("Final Response:\n", response)
+                    else:
+                        answer = "I was not able to retrieve that information.\n\nQuery statement used:\n\n" + str(statement)
 
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."

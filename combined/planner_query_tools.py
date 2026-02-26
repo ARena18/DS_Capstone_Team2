@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from langchain_core.tools import tool
 
-from data_pipeline.query_library import TransitQueryLibrary
+from query_library import TransitQueryLibrary
 
 load_dotenv()
 
@@ -223,3 +223,4 @@ def service_change_impact(route_id: str, change_date: str, window_days: int = 30
 - Direction: {impact.get('direction', 'n/a')}
 - Significant (>5%): {impact.get('significant', False)}
 """
+

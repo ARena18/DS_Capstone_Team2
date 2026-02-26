@@ -1,14 +1,48 @@
 # app.py
-from langchain_core.messages import HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_ollama import ChatOllama
-from langchain.tools import tool, ToolRuntime
 import streamlit as st
+from st_copy import copy_button
 
+#from query_info import SCHEMA, query_db
 from planner_query_tools import top_routes_by_ridership, route_ridership_trend, busiest_stops, service_change_impact
 
-SUPPORTED_TOOL_MESSAGE = "I can’t answer that with the available transit data tools."
+# --- Variables & Functions ---
 ALL_TOOLS = [top_routes_by_ridership, route_ridership_trend, busiest_stops, service_change_impact]
+TOOL_MAP = {t.name.lower(): t for t in ALL_TOOLS}
 
+MAX_FIX_ATTEMPTS = 5
+
+def display_messages():
+    """Display all messages in the chat history"""
+    button_count = 0    # count for unique copy buttons
+
+    for msg in st.session_state.messages:
+        author = "user" if msg["role"] == "user" else "assistant"
+        with st.chat_message(author):
+            st.write(msg["content"])
+
+            # Add a copy button
+            button_key = f"copy_btn_{button_count}"
+            copy_button(
+                msg["content"],
+                icon="st",  # use Streamlit's code-block icon
+                key=button_key,
+                tooltip="Copy Message",
+                copied_label="Message Copied!"
+            )
+            button_count += 1
+
+def extractQuery(response):
+    """Extract SQL statement from LLM's response"""
+    statement = response.content.replace("\n", " ")
+    start_index = statement.rfind("SELECT")
+    end_index = start_index + statement[start_index:].rfind(";")
+    statement = statement[start_index:end_index]
+    return statement
+
+
+# -- Configure the LLM ---
 llm = ChatOllama(
     model="llama3.2",
     temperature=0,
@@ -130,7 +164,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Header ---
+# Header
 st.markdown(
     """
     <div class="header">
@@ -153,14 +187,6 @@ if "messages" not in st.session_state:
         }
     ]
 
-def display_messages():
-    """Display all messages in the chat history"""
-    for msg in st.session_state.messages:
-        author = "user" if msg["role"] == "user" else "assistant"
-        with st.chat_message(author):
-            st.write(msg["content"])
-
-# --- Display existing messages ---
 display_messages()
 
 # --- Handle new user input ---
@@ -181,42 +207,43 @@ if prompt:
 
         # Call Ollama through ChatOllama
         try:
-            # Configure the question prompt
-            systemInstructions = "You are a helpful assistant focused on King County Metro. Format the response clearly, using lists if appropriate." + \
-                                 "If a tool can answer the question, you MUST call the tool." + \
-                                 "If you do not have the tools to answer the question, reply '" + SUPPORTED_TOOL_MESSAGE + \
-                                 "'. If you do have the tools, answer without mentioning tools."
-            questionPrompt = [
-                (
-                    "system",
-                    systemInstructions
-                ),
-                (
-                    "user",
-                    prompt
-                )
-            ]
-
+            print("\n*** ---------------------------------------------------- ***\n")   # to separate responses for each prompt
+            
+            # Configure the invocation array
+            systemInstructions = """
+                You are a helpful assistant who only answers about King County Metro.
+                If the user asks about any other transit systems (e.g. New York transit), state 'I am not authorized to provide information not pertaining to King County Metro.' Do not answer about any other transit systems.
+                Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites.
+                If a tool can answer the question, you MUST call the tool.
+                If the user does not specify a year, use 2025 as the baseline for the tool arguments.
+                If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
+                If the user does not specify an end_date, you MUST use December 30th, 2025 as the baseline for the tool arguments.
+            """
+            systemMessages = [SystemMessage(systemInstructions),
+                              HumanMessage(prompt)]
+            
             # Get response from LLM
-            response = llm.invoke(questionPrompt)
+            response = llm.invoke(systemMessages)
+            print("Tool Response:\n", response)
+            answer = response.content
 
-            if response.tool_calls:
-                print("Handling tool invocation...")
+            if "I am not authorized" not in answer:
+                if response.tool_calls: # If the model calls a tool, handle the tool call
+                    print("Handling tool invocation...")
+                    toolMessages = [HumanMessage(prompt), response]
 
-                tool_map = {t.name.lower(): t for t in ALL_TOOLS}
+                    answer = ""
+                    for tool_call in response.tool_calls:
+                        tool_name = tool_call["name"].lower()
+                        selected_tool = TOOL_MAP[tool_name]
 
-                toolMessages = [HumanMessage(prompt), response]
+                        # Execute tool with args ONLY
+                        tool_result = selected_tool.invoke(tool_call["args"])
+                        answer += str(tool_result) + "\n"
 
-                answer = ""
-                for tool_call in response.tool_calls:
-                    tool_name = tool_call["name"].lower()
-                    selected_tool = tool_map[tool_name]
+                    print(response.tool_calls)
 
-                    # Execute tool with args ONLY
-                    tool_result = selected_tool.invoke(tool_call["args"])
 
-                    answer += str(tool_result) + "\n"
-                print(toolMessages)
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."
 

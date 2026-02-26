@@ -205,7 +205,7 @@ if prompt:
             # Configure the query prompt
             queryInstructions = "You are a helpful assistant who only answers about King County Metro. If the user asks about any other transit systems (e.g. New York transit), state 'I am not authorized to provide information not pertaining to King County Metro.' Do not answer about any other transit systems. Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites. There is a database with the folowing schema: " + SCHEMA + ". Create an SQL statement (without JOIN operations) to query the database for the information the user requests to read."    
             queryMessages = [SystemMessage(queryInstructions),
-                              HumanMessage(prompt)]
+                             HumanMessage(prompt)]
 
             # Get query response from LLM
             response = query_llm.invoke(queryMessages)

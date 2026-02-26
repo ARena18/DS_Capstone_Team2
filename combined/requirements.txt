@@ -1,0 +1,7 @@
+langchain
+langchain-ollama
+psycopg2
+python-dotenv
+streamlit
+st_copy
+tabulate

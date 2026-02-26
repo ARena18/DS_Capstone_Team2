@@ -1,7 +1,8 @@
 import os
 import pandas as pd
+import psycopg2
 from dotenv import load_dotenv
-from typing import Optional, Dict, Any
+from typing import Optional
 from sqlalchemy import create_engine
 from langchain_core.tools import tool
 
@@ -35,9 +36,18 @@ def _df_to_str(df: pd.DataFrame, max_rows: int = 20) -> str:
     return df.to_markdown(index=False)
 
 @tool
-def top_routes_by_ridership(start_date: str, end_date: str, top_n: int = 10,
+def top_routes_by_ridership(start_date: str = "2025-01-01", end_date: str = "2025-12-31", top_n: int = 10,
                             day_code: Optional[str] = None, direction: Optional[str] = None) -> str:
-    """Top routes by boardings for a date range. day_code: WK/SA/SU/HOL. direction: I, O"""
+    """
+    Top routes by boardings for a date range.
+    
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        top_n: Number of routes to return (default 10)
+        day_code: Optional filter ('WK', 'SA', 'SU', 'HOL')
+        direction: Optional filter ('I', 'O', '0')
+    """
 
     try:
         top_n = int(top_n)
@@ -65,7 +75,6 @@ def top_routes_by_ridership(start_date: str, end_date: str, top_n: int = 10,
         day_code=day_code,
         direction=direction,
     )
-    print(df, end="\n\n")
 
     if df is None or df.empty:
         return f"No route activity found from {start_date} to {end_date}."
@@ -87,10 +96,15 @@ def top_routes_by_ridership(start_date: str, end_date: str, top_n: int = 10,
     )
 
 @tool
-def route_ridership_trend(route_id: str, start_date: str, end_date: str, aggregation: str = "daily") -> str:
+def route_ridership_trend(route_id: str, start_date: str = "2025-01-01", end_date: str = "2025-12-31", aggregation: str = "daily") -> str:
     """
     Ridership trend for a route over time.
-    aggregation must be: daily, weekly, or monthly.
+
+    Args:
+        route_id: Route identifier (e.g., '40', '7', 'E Line')
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        aggregation: 'daily', 'weekly', or 'monthly'
     """
     route_id = str(route_id).strip()
 
@@ -115,7 +129,7 @@ def route_ridership_trend(route_id: str, start_date: str, end_date: str, aggrega
     # Summary line
     total_boardings = float(df["total_boardings"].sum())
     total_trips = int(df["trip_count"].sum())
-    avg_load = float(df["avg_max_psngr_load"].mean())
+    avg_load = float(df["avg_load_factor"].mean())
 
     return (
         f"### 📈 Ridership Trend — Route {route_id}\n"
@@ -124,16 +138,22 @@ def route_ridership_trend(route_id: str, start_date: str, end_date: str, aggrega
         f"**Summary:** \n"
         f"- Total boardings = **{total_boardings:,.0f}**, \n"
         f"- Total trips = **{total_trips:,}**, \n"
-        f"- Avg max load = **{avg_load:.2f}**  \n\n"
+        f"- Avg load factor = **{avg_load:.2f}**  \n\n"
         f"**First {min(len(df), max_rows)} rows:**\n\n"
         f"{shown.to_markdown(index=False)}"
     )
 
 @tool
-def busiest_stops(start_date: str, end_date: str, route_id: Optional[str] = None, top_n: int = 10, metric: str = "boardings") -> str:
+def busiest_stops(start_date: str = "2025-01-01", end_date: str = "2025-12-31", route_id: Optional[str] = None, top_n: int = 10, metric: str = "boardings") -> str:
     """
     Return busiest stops by total boardings or total alightings.
-    metric must be 'boardings' or 'alightings'.
+
+    Args:
+            start_date: Start date
+            end_date: End date
+            route_id: Optional route filter
+            top_n: Number of stops to return
+            metric: 'boardings' or 'alightings'
     """
     try:
         top_n = int(top_n)
@@ -178,11 +198,14 @@ def busiest_stops(start_date: str, end_date: str, route_id: Optional[str] = None
     )
 
 @tool
-def service_change_impact(route_id: str, change_date: str, window_days: int = 30) -> str:
+def service_change_impact(route_id: str, change_date: str = "2025-06-15", window_days: int = 30) -> str:
     """
     Analyze ridership impact before/after a service change.
-    change_date must be YYYY-MM-DD.
-    window_days defaults to 30.
+
+    Args:
+        route_id: Route identifier
+        change_date: Date of service change (YYYY-MM-DD)
+        window_days: Days before/after to compare (default 30)
     """
     route_id = str(route_id)
 

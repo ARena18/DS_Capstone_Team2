@@ -214,10 +214,41 @@ if prompt:
                 You are a helpful assistant who only answers about King County Metro.
                 If the user asks about any other transit systems (e.g. New York transit), state 'I am not authorized to provide information not pertaining to King County Metro.' Do not answer about any other transit systems.
                 Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites.
+                
+                top_routes_by_ridership returns the top routes by boardings for a date range.
+                Args:
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+                    top_n: Number of routes to return (default 10)
+                    day_code: Optional filter ('WK', 'SA', 'SU', 'HOL')
+                    direction: Optional filter ('I', 'O', '0')
+
+                route_ridership_trend returns the ridership trend for a route over time.
+                Args:
+                    route_id: Route identifier (e.g., '40', '7', 'E Line')
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+                    aggregation: 'daily', 'weekly', or 'monthly'
+
+                busiest_stops returns the busiest stops by total boardings or total alightings.
+                Args:
+                        start_date: Start date
+                        end_date: End date
+                        route_id: Optional route filter
+                        top_n: Number of stops to return
+                        metric: 'boardings' or 'alightings'
+                
+                service_change_impact returns an analysis of ridership impact before and after a service change.
+                Args:
+                    route_id: Route identifier
+                    change_date: Date of service change (YYYY-MM-DD)
+                    window_days: Days before/after to compare (default 30)
+                
                 If a tool can answer the question, you MUST call the tool.
-                If the user does not specify a year, use 2025 as the baseline for the tool arguments.
                 If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
-                If the user does not specify an end_date, you MUST use December 30th, 2025 as the baseline for the tool arguments.
+                If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+                If the user does not specify a change_date, use June 15th, 2025 as the baseline for the tool arguments.
+                The route id should only be the number or name of the route (e.g. 2, 40, E Line).
             """
             systemMessages = [SystemMessage(systemInstructions),
                               HumanMessage(prompt)]

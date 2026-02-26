@@ -1,7 +1,7 @@
 import os
 import pandas as pd
-import psycopg2
 from dotenv import load_dotenv
+from typing import Optional, Dict, Any
 from sqlalchemy import create_engine
 from langchain_core.tools import tool
 
@@ -36,7 +36,7 @@ def _df_to_str(df: pd.DataFrame, max_rows: int = 20) -> str:
 
 @tool
 def top_routes_by_ridership(start_date: str, end_date: str, top_n: int = 10,
-                            day_code: str = None, direction: str = None) -> str:
+                            day_code: Optional[str] = None, direction: Optional[str] = None) -> str:
     """Top routes by boardings for a date range. day_code: WK/SA/SU/HOL. direction: I, O"""
 
     try:
@@ -65,6 +65,7 @@ def top_routes_by_ridership(start_date: str, end_date: str, top_n: int = 10,
         day_code=day_code,
         direction=direction,
     )
+    print(df, end="\n\n")
 
     if df is None or df.empty:
         return f"No route activity found from {start_date} to {end_date}."
@@ -129,7 +130,7 @@ def route_ridership_trend(route_id: str, start_date: str, end_date: str, aggrega
     )
 
 @tool
-def busiest_stops(start_date: str, end_date: str, route_id: str = None, top_n: int = 10, metric: str = "boardings") -> str:
+def busiest_stops(start_date: str, end_date: str, route_id: Optional[str] = None, top_n: int = 10, metric: str = "boardings") -> str:
     """
     Return busiest stops by total boardings or total alightings.
     metric must be 'boardings' or 'alightings'.

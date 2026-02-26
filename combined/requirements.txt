@@ -1,7 +1,10 @@
+datetime
 langchain
 langchain-ollama
-psycopg2
+pandas
 python-dotenv
 streamlit
 st_copy
+sqlalchemy
 tabulate
+typing

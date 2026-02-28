@@ -107,6 +107,8 @@ def route_ridership_trend(route_id: str, start_date: str = "2025-01-01", end_dat
         aggregation: 'daily', 'weekly', or 'monthly'
     """
     route_id = str(route_id).strip()
+    if not route_id:
+        return ValueError("Please specify the route.")
 
     agg = (aggregation or "daily").lower().strip()
     if agg not in {"daily", "weekly", "monthly"}:
@@ -198,7 +200,7 @@ def busiest_stops(start_date: str = "2025-01-01", end_date: str = "2025-12-31", 
     )
 
 @tool
-def service_change_impact(route_id: str, change_date: str = "2025-06-15", window_days: int = 30) -> str:
+def service_change_impact(route_id: str, change_date: str, window_days: int = 30) -> str:
     """
     Analyze ridership impact before/after a service change.
 
@@ -208,6 +210,8 @@ def service_change_impact(route_id: str, change_date: str = "2025-06-15", window
         window_days: Days before/after to compare (default 30)
     """
     route_id = str(route_id)
+    if not route_id:
+        return ValueError("Please specify the route.")
 
     try:
         window_days = int(window_days)

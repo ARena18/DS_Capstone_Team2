@@ -45,6 +45,7 @@ def extractQuery(response):
 # -- Configure the LLM ---
 llm = ChatOllama(
     model="llama3.2",
+    #model="qwen3",
     temperature=0,
 ).bind_tools(ALL_TOOLS)
 
@@ -228,7 +229,7 @@ if prompt:
                     route_id: Route identifier (e.g., '40', '7', 'E Line')
                     start_date: Start date (YYYY-MM-DD)
                     end_date: End date (YYYY-MM-DD)
-                    aggregation: 'daily', 'weekly', or 'monthly'
+                    aggregation: 'daily', 'weekly', or 'monthly' (default 'daily')
 
                 busiest_stops returns the busiest stops by total boardings or total alightings.
                 Args:
@@ -236,7 +237,7 @@ if prompt:
                         end_date: End date
                         route_id: Optional route filter
                         top_n: Number of stops to return
-                        metric: 'boardings' or 'alightings'
+                        metric: 'boardings' or 'alightings' (default 'boardings')
                 
                 service_change_impact returns an analysis of ridership impact before and after a service change.
                 Args:
@@ -245,27 +246,29 @@ if prompt:
                     window_days: Days before/after to compare (default 30)
                 
                 If a tool can answer the question, you MUST call the tool.
-                If the user only specifies a month, use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
+                
+                If the user only specifes a day (e.g. on the 21st), respond 'Please specify the day, month, and year for the question or request.'
+                If the user only specifies a month (e.g in May), use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
                 Otherwise:
                     If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
                     If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+                    If the user does not specify a change_date yet it is needed for the tool, respond 'Please specify the service change date for the question or request'.
                 
-                If the user does not specify a change_date, use June 15th, 2025 as the baseline for the tool arguments.
-                The route id should only be the number or name of the route (e.g. 2, 40, E Line).
+                The route_id should only be the number or name of the route (e.g. 2, 40, E Line).
+                If the user does not specify a route_id yet the tool needs it as an argument, respond 'Please specify the route for the question.' DO NOT USE UNSPECIFIED ROUTES.
             """
             systemMessages = [SystemMessage(systemInstructions),
                               HumanMessage(prompt)]
             
             # Get response from LLM
             response = llm.invoke(systemMessages)
-            print("Tool Response:\n", response)
+            print(response)
             answer = response.content
 
-            if "I am not authorized" not in answer:
+            if ("I am not authorized" not in answer) and ("Please specify" not in answer):
                 if response.tool_calls: # If the model calls a tool, handle the tool call
                     print("Handling tool invocation...")
-                    toolMessages = [HumanMessage(prompt), response]
-
+                    
                     answer = ""
                     for tool_call in response.tool_calls:
                         tool_name = tool_call["name"].lower()
@@ -276,7 +279,6 @@ if prompt:
                         answer += str(tool_result) + "\n"
 
                     print(response.tool_calls)
-
 
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."

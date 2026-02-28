@@ -245,8 +245,11 @@ if prompt:
                     window_days: Days before/after to compare (default 30)
                 
                 If a tool can answer the question, you MUST call the tool.
-                If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
-                If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+                If the user only specifies a month, use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
+                Otherwise:
+                    If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
+                    If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+                
                 If the user does not specify a change_date, use June 15th, 2025 as the baseline for the tool arguments.
                 The route id should only be the number or name of the route (e.g. 2, 40, E Line).
             """

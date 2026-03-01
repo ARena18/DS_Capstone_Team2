@@ -223,3 +223,240 @@ def service_change_impact(route_id: str, change_date: str, window_days: int = 30
 - Direction: {impact.get('direction', 'n/a')}
 - Significant (>5%): {impact.get('significant', False)}
 """
+
+@tool
+def most_crowded_routes(start_date: str, end_date: str, time_period: str = None, 
+                       min_load_factor: float = 80.0, top_n: int = 10) -> str:
+    """
+    Identify routes with highest crowding (exceeding capacity).
+    
+    Args:
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+        time_period: Optional filter (e.g., 'AM Peak', 'PM Peak')
+        min_load_factor: Minimum avg load factor % (default 80)
+        top_n: Number of routes (default 10)
+    """
+    try:
+        top_n = int(top_n)
+        min_load_factor = float(min_load_factor)
+    except Exception:
+        top_n = 10
+        min_load_factor = 80.0
+
+    if time_period is not None:
+        time_period = str(time_period).strip()
+        if time_period == "":
+            time_period = None
+
+    df = query_lib.get_most_crowded_routes(
+        start_date=start_date,
+        end_date=end_date,
+        time_period=time_period,
+        min_load_factor=min_load_factor,
+        top_n=top_n
+    )
+
+    if df is None or df.empty:
+        return f"No crowded routes found (load factor >= {min_load_factor}%) from {start_date} to {end_date}."
+
+    time_filter = f"**Time Period:** {time_period}  \n" if time_period else "**Time Period:** All  \n"
+
+    return (
+        f"### 🚨 Most Crowded Routes\n"
+        f"**Range:** {start_date} → {end_date}  \n"
+        f"{time_filter}"
+        f"**Min Load Factor:** {min_load_factor}%  \n\n"
+        f"{_df_to_str(df)}"
+    )
+
+@tool
+def compare_routes(route_ids: str, start_date: str, end_date: str) -> str:
+    """
+    Compare multiple routes side-by-side.
+    
+    Args:
+        route_ids: Comma-separated route IDs (e.g., "40,7,E Line")
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    """
+    # Parse comma-separated route IDs
+    if isinstance(route_ids, str):
+        route_list = [r.strip() for r in route_ids.split(",")]
+    else:
+        route_list = [str(route_ids)]
+
+    df = query_lib.compare_routes(
+        route_ids=route_list,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df is None or df.empty:
+        return f"No data found for routes {route_ids} from {start_date} to {end_date}."
+
+    return (
+        f"### 🔄 Route Comparison\n"
+        f"**Routes:** {', '.join(route_list)}  \n"
+        f"**Range:** {start_date} → {end_date}  \n\n"
+        f"{_df_to_str(df)}"
+    )
+
+@tool
+def declining_routes(comparison_months: int = 3, threshold_pct: float = -10.0, min_trips: int = 100) -> str:
+    """
+    Identify routes with significant ridership decline.
+    
+    Args:
+        comparison_months: Months to compare (default 3)
+        threshold_pct: Decline threshold as negative % (default -10)
+        min_trips: Minimum trips to include (default 100)
+    """
+    try:
+        comparison_months = int(comparison_months)
+        threshold_pct = float(threshold_pct)
+        min_trips = int(min_trips)
+    except Exception:
+        comparison_months = 3
+        threshold_pct = -10.0
+        min_trips = 100
+
+    df = query_lib.identify_declining_routes(
+        comparison_months=comparison_months,
+        threshold_pct=threshold_pct,
+        min_trips=min_trips
+    )
+
+    if df is None or df.empty:
+        return f"No declining routes found (threshold: {threshold_pct}%, min trips: {min_trips})."
+
+    return (
+        f"### 📉 Declining Routes\n"
+        f"**Comparison Period:** Last {comparison_months} months vs previous {comparison_months} months  \n"
+        f"**Threshold:** {threshold_pct}%  \n"
+        f"**Min Trips:** {min_trips}  \n\n"
+        f"{_df_to_str(df)}"
+    )
+
+@tool
+def crowding_by_time_period(route_id: str = None, start_date: str = None, end_date: str = None) -> str:
+    """
+    Analyze crowding patterns by time of day.
+    
+    Args:
+        route_id: Optional route filter
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    """
+    if route_id is not None:
+        route_id = str(route_id).strip()
+        if route_id == "":
+            route_id = None
+
+    df = query_lib.get_crowding_by_time_period(
+        route_id=route_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df is None or df.empty:
+        route_note = f" for Route {route_id}" if route_id else ""
+        return f"No crowding data found{route_note} from {start_date} to {end_date}."
+
+    route_line = f"**Route:** {route_id}  \n" if route_id else "**Route:** All routes  \n"
+
+    return (
+        f"### 🕐 Crowding by Time Period\n"
+        f"**Range:** {start_date} → {end_date}  \n"
+        f"{route_line}\n"
+        f"{_df_to_str(df)}"
+    )
+
+@tool
+def route_by_direction(route_id: str, start_date: str, end_date: str) -> str:
+    """
+    Compare inbound vs outbound performance for a route.
+    
+    Args:
+        route_id: Route identifier
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    """
+    route_id = str(route_id).strip()
+
+    df = query_lib.get_route_by_direction(
+        route_id=route_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df is None or df.empty:
+        return f"No directional data found for Route {route_id} from {start_date} to {end_date}."
+
+    return (
+        f"### ↔️ Directional Analysis — Route {route_id}\n"
+        f"**Range:** {start_date} → {end_date}  \n\n"
+        f"{_df_to_str(df)}"
+    )
+
+@tool
+def ridership_by_day_type(route_id: str = None, start_date: str = None, end_date: str = None) -> str:
+    """
+    Analyze ridership by day type (Weekday/Saturday/Sunday/Holiday).
+    
+    Args:
+        route_id: Optional route filter
+        start_date: Start date (YYYY-MM-DD)
+        end_date: End date (YYYY-MM-DD)
+    """
+    if route_id is not None:
+        route_id = str(route_id).strip()
+        if route_id == "":
+            route_id = None
+
+    df = query_lib.get_ridership_by_day_type(
+        route_id=route_id,
+        start_date=start_date,
+        end_date=end_date
+    )
+
+    if df is None or df.empty:
+        route_note = f" for Route {route_id}" if route_id else ""
+        return f"No data found{route_note} from {start_date} to {end_date}."
+
+    route_line = f"**Route:** {route_id}  \n" if route_id else "**Route:** All routes  \n"
+
+    return (
+        f"### 📆 Ridership by Day Type\n"
+        f"**Range:** {start_date} → {end_date}  \n"
+        f"{route_line}\n"
+        f"{_df_to_str(df)}"
+    )
+
+# ================================================================
+# TOOL REGISTRY
+# ================================================================
+
+# List of all available tools for easy import
+ALL_TOOLS = [
+    top_routes_by_ridership,
+    route_ridership_trend,
+    busiest_stops,
+    service_change_impact,
+    # New
+    most_crowded_routes,
+    compare_routes,
+    declining_routes,
+    crowding_by_time_period,
+    route_by_direction,
+    ridership_by_day_type,
+]
+
+def get_all_tools():
+    """Return list of all available tools"""
+    return ALL_TOOLS
+
+def get_tool_names():
+    """Return list of all tool names"""
+    return [tool.name for tool in ALL_TOOLS]
+

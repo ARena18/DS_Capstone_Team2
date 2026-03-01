@@ -1,17 +1,18 @@
 # app.py
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama
-from langchain.tools import tool, ToolRuntime
+# from langchain.tools import tool, ToolRuntime
 import streamlit as st
 
-from query_tools import *
-print("\n\n")
+from planner_query_tools import get_all_tools
 
-# --- Configure the LLM ---
+SUPPORTED_TOOL_MESSAGE = "I can’t answer that with the available transit data tools."
+ALL_TOOLS = get_all_tools()
+
 llm = ChatOllama(
-    model="llama3.2",   #llama3.2 model supports tool binding
+    model="llama3.2",
     temperature=0,
-).bind_tools([get_operation_period])
+).bind_tools(ALL_TOOLS)
 
 # --- Configure Streamlit page ---
 st.set_page_config(page_title="King County Transit Chat", page_icon="🚌", layout="centered")
@@ -181,32 +182,41 @@ if prompt:
         # Call Ollama through ChatOllama
         try:
             # Configure the question prompt
-            systemInstructions = "You are a helpful assistant focused on King County Metro. Answer without mentioning tools nor dictionaries." + \
-                                 "If you do not have the tools to answer the question, reply with '" + SUPPORTED_TOOL_MESSAGE + "' only."
-            
-            systemMessages = [SystemMessage(systemInstructions),
-                              HumanMessage(prompt)]
+            systemInstructions = "You are a helpful assistant focused on King County Metro. Format the response clearly, using lists if appropriate." + \
+                                 "If a tool can answer the question, you MUST call the tool." + \
+                                 "If you do not have the tools to answer the question, reply '" + SUPPORTED_TOOL_MESSAGE + \
+                                 "'. If you do have the tools, answer without mentioning tools."
+            questionPrompt = [
+                (
+                    "system",
+                    systemInstructions
+                ),
+                (
+                    "user",
+                    prompt
+                )
+            ]
 
             # Get response from LLM
-            response = llm.invoke(systemMessages)
-            answer = response.content
+            response = llm.invoke(questionPrompt)
 
-            # Handle tool invocation
             if response.tool_calls:
                 print("Handling tool invocation...")
-                systemMessages.append(response)
 
-                # Get tool call results
+                tool_map = {t.name.lower(): t for t in ALL_TOOLS}
+
+                toolMessages = [HumanMessage(prompt), response]
+
+                answer = ""
                 for tool_call in response.tool_calls:
-                    selected_tool = {"operation_period": get_operation_period}[tool_call["name"].lower()]
-                    tool_msg = selected_tool.invoke(tool_call)
-                    systemMessages.append(tool_msg)
-                print(systemMessages)   # logging
+                    tool_name = tool_call["name"].lower()
+                    selected_tool = tool_map[tool_name]
 
-                # Get response from LLM
-                response = llm.invoke(systemMessages)
-                answer = response.content
+                    # Execute tool with args ONLY
+                    tool_result = selected_tool.invoke(tool_call["args"])
 
+                    answer += str(tool_result) + "\n"
+                print(toolMessages)
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."
 

@@ -256,12 +256,12 @@ def service_change_impact(route_id: str, change_date: str, window_days: int = 30
 """
 
 @tool
-def get_overcrowded_routes(service_change_num: str, time_period: str = None, top_n: int = 10) -> str:
+def get_overcrowded_routes(service_change_num: str, time_period: Optional[str] = None, top_n: int = 10) -> str:
     """
-    Identify overcrowded routes based on KCM definition
+    Identify overcrowded routes based on King County Metro's definition
     
     Args:
-        service_change_num: Service change period identifier
+        service_change_num: Service change period identifier (e.g., 243, 244)
         time_period: Optional filter (e.g., 'AM Peak', 'PM Peak')
         top_n: Number of routes (default 10)
     """

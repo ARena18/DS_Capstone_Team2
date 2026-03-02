@@ -298,7 +298,7 @@ class TransitQueryLibrary:
 
     def get_overcrowded_routes(
         self,
-        service_change_num: Optional[str] = None,
+        service_change_num: str,
         time_period: Optional[str] = None,
         top_n: int = 10
     ) -> pd.DataFrame:

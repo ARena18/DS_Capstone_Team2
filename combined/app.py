@@ -226,6 +226,9 @@ if prompt:
                 
                 The route_id should only be the number or name of the route (e.g. 2, 40, E Line).
                 If the user does not specify a route_id yet the tool needs it as an argument, respond 'Please specify the route for the question.' DO NOT USE UNSPECIFIED ROUTES.
+                
+                The most recent service_change_num is 253. The oldest service_change_num is 243.
+                If the user does not specify a service_change_num yet the tool needs it as an argument, respond 'Please specify the service change number for the question.' DO NOT USE UNSPECIFIED SERVICE CHANGE NUMBERS.
 
                 Here is a description of all the tools:
 
@@ -258,12 +261,10 @@ if prompt:
                     change_date: Date of service change (YYYY-MM-DD)
                     window_days: Days before/after to compare (default 30)
 
-                most_crowded_routes identifies routes with highest crowding (exceeding capacity).
+                get_overcrowded_routes identifies overcrowded routes based on King County Metro's definition
                 Args:
-                    start_date: Start date (YYYY-MM-DD)
-                    end_date: End date (YYYY-MM-DD)
+                    service_change_num: Service change period identifier (e.g. )
                     time_period: Optional filter (e.g., 'AM Peak', 'PM Peak')
-                    min_load_factor: Minimum avg load factor % (default 80)
                     top_n: Number of routes (default 10)
 
                 compare_routes compares multiple routes side-by-side.

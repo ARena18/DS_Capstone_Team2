@@ -1,6 +1,7 @@
 # app.py
 from langchain_core.messages import HumanMessage
 from langchain_ollama import ChatOllama
+
 # from langchain.tools import tool, ToolRuntime
 import streamlit as st
 
@@ -15,7 +16,9 @@ llm = ChatOllama(
 ).bind_tools(ALL_TOOLS)
 
 # --- Configure Streamlit page ---
-st.set_page_config(page_title="King County Transit Chat", page_icon="🚌", layout="centered")
+st.set_page_config(
+    page_title="King County Transit Chat", page_icon="🚌", layout="centered"
+)
 st.title("🚌 Transit Data Chat Assistant")
 st.subheader("Your AI assistant for retrieving King Country Metro transit data")
 
@@ -148,10 +151,11 @@ st.markdown(
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
-            "role": "assistant", 
-            "content": "Hi! I'm your transit data assistant. Ask me anything about King County Metro transit routes. How can I help you today?"
+            "role": "assistant",
+            "content": "Hi! I'm your transit data assistant. Ask me anything about King County Metro transit routes. How can I help you today?",
         }
     ]
+
 
 def display_messages():
     """Display all messages in the chat history"""
@@ -159,6 +163,7 @@ def display_messages():
         author = "user" if msg["role"] == "user" else "assistant"
         with st.chat_message(author):
             st.write(msg["content"])
+
 
 # --- Display existing messages ---
 display_messages()
@@ -182,20 +187,14 @@ if prompt:
         # Call Ollama through ChatOllama
         try:
             # Configure the question prompt
-            systemInstructions = "You are a helpful assistant focused on King County Metro. Format the response clearly, using lists if appropriate." + \
-                                 "If a tool can answer the question, you MUST call the tool." + \
-                                 "If you do not have the tools to answer the question, reply '" + SUPPORTED_TOOL_MESSAGE + \
-                                 "'. If you do have the tools, answer without mentioning tools."
-            questionPrompt = [
-                (
-                    "system",
-                    systemInstructions
-                ),
-                (
-                    "user",
-                    prompt
-                )
-            ]
+            systemInstructions = (
+                "You are a helpful assistant focused on King County Metro. Format the response clearly, using lists if appropriate."
+                + "If a tool can answer the question, you MUST call the tool."
+                + "If you do not have the tools to answer the question, reply '"
+                + SUPPORTED_TOOL_MESSAGE
+                + "'. If you do have the tools, answer without mentioning tools."
+            )
+            questionPrompt = [("system", systemInstructions), ("user", prompt)]
 
             # Get response from LLM
             response = llm.invoke(questionPrompt)

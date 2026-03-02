@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import pandas as pd # type: ignore
+import pandas as pd  # type: ignore
 import argparse
 from pathlib import Path
 from __future__ import annotations
-from database import DatabaseManager # type: ignore
+from database import DatabaseManager  # type: ignore
 
 """
 etl.py - Load transit datasets into PostgreSQL
@@ -18,10 +18,11 @@ Notes:
 - Assumes tables already exist (created by transit_schema.sql).
 """
 
+
 class TransitDataETL:
     def __init__(self, db_manager: DatabaseManager):
         self.db = db_manager
-    
+
     def _copy_csv_to_table(
         self,
         table_name: str,
@@ -107,9 +108,13 @@ class TransitDataETL:
             delimiter=",",
             truncate_first=truncate_first,
         )
-        print(f"Trips loaded (attempted rows: {loaded:,})  | table count now: {self._table_count('public.trips'):,}")
-    
-    def load_stop_daily(self, csv_path: str | Path, truncate_first: bool = False) -> None:
+        print(
+            f"Trips loaded (attempted rows: {loaded:,})  | table count now: {self._table_count('public.trips'):,}"
+        )
+
+    def load_stop_daily(
+        self, csv_path: str | Path, truncate_first: bool = False
+    ) -> None:
         """
         Loads Stop_level_db.csv into public.stop_daily.
         """
@@ -136,9 +141,13 @@ class TransitDataETL:
             delimiter=",",
             truncate_first=truncate_first,
         )
-        print(f"Stop_daily loaded (attempted rows: {loaded:,}) | table count now: {self._table_count('public.stop_daily'):,}")
-    
-    def load_stops_reference(self, csv_path: str | Path, truncate_first: bool = False) -> None: 
+        print(
+            f"Stop_daily loaded (attempted rows: {loaded:,}) | table count now: {self._table_count('public.stop_daily'):,}"
+        )
+
+    def load_stops_reference(
+        self, csv_path: str | Path, truncate_first: bool = False
+    ) -> None:
         """Loads GIS_stop_cleaned.csv into public.stops_reference."""
         stops_ref_cols = [
             "change_num",
@@ -159,13 +168,21 @@ class TransitDataETL:
             delimiter=",",
             truncate_first=truncate_first,
         )
-        print(f"Stops_reference loaded (attempted rows: {loaded:,}) | table count now: {self._table_count('public.stops_reference'):,}")
+        print(
+            f"Stops_reference loaded (attempted rows: {loaded:,}) | table count now: {self._table_count('public.stops_reference'):,}"
+        )
 
     def create_summary_stats(self) -> None:
         with self.db.get_connection() as conn:
-            trips = pd.read_sql("SELECT COUNT(*) AS n FROM public.trips;", conn).iloc[0]["n"]
-            stops = pd.read_sql("SELECT COUNT(*) AS n FROM public.stop_daily;", conn).iloc[0]["n"]
-            refs = pd.read_sql("SELECT COUNT(*) AS n FROM public.stops_reference;", conn).iloc[0]["n"]
+            trips = pd.read_sql("SELECT COUNT(*) AS n FROM public.trips;", conn).iloc[
+                0
+            ]["n"]
+            stops = pd.read_sql(
+                "SELECT COUNT(*) AS n FROM public.stop_daily;", conn
+            ).iloc[0]["n"]
+            refs = pd.read_sql(
+                "SELECT COUNT(*) AS n FROM public.stops_reference;", conn
+            ).iloc[0]["n"]
 
             trip_dates = pd.read_sql(
                 "SELECT MIN(operation_date) AS min_d, MAX(operation_date) AS max_d FROM public.trips;",
@@ -187,19 +204,36 @@ class TransitDataETL:
                 conn,
             ).iloc[0]["n"]
         print("\n=== Database Summary ===")
-        print(f"trips:           {int(trips):,} rows | date range {trip_dates.iloc[0]['min_d']} → {trip_dates.iloc[0]['max_d']}")
-        print(f"stop_daily:      {int(stops):,} rows | date range {stop_dates.iloc[0]['min_d']} → {stop_dates.iloc[0]['max_d']}")
+        print(
+            f"trips:           {int(trips):,} rows | date range {trip_dates.iloc[0]['min_d']} → {trip_dates.iloc[0]['max_d']}"
+        )
+        print(
+            f"stop_daily:      {int(stops):,} rows | date range {stop_dates.iloc[0]['min_d']} → {stop_dates.iloc[0]['max_d']}"
+        )
         print(f"stops_reference: {int(refs):,} rows")
         print(f"unique routes:   {int(unique_routes):,}")
-        print(f"unique stops:    {int(unique_stops):,}")    
+        print(f"unique stops:    {int(unique_stops):,}")
+
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--run-create-tables", action="store_true", help="Run db.create_tables() before loading")
-    parser.add_argument("--truncate", action="store_true", help="Truncate tables before loading")
+    parser.add_argument(
+        "--run-create-tables",
+        action="store_true",
+        help="Run db.create_tables() before loading",
+    )
+    parser.add_argument(
+        "--truncate", action="store_true", help="Truncate tables before loading"
+    )
     parser.add_argument("--trip-csv", required=True, help="Path to Trip_level_db.csv")
-    parser.add_argument("--stop-csv", required=True, help="Path to Stop_level_db.csv (stop_daily)")
-    parser.add_argument("--gis-csv", required=True, help="Path to GIS_stop_cleaned.csv (stops_reference)")
+    parser.add_argument(
+        "--stop-csv", required=True, help="Path to Stop_level_db.csv (stop_daily)"
+    )
+    parser.add_argument(
+        "--gis-csv",
+        required=True,
+        help="Path to GIS_stop_cleaned.csv (stops_reference)",
+    )
     args = parser.parse_args()
 
     db = DatabaseManager()
@@ -215,6 +249,7 @@ def main():
 
     # Validate
     etl.create_summary_stats()
+
 
 if __name__ == "__main__":
     main()

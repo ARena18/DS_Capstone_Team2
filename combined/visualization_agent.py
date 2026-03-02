@@ -1,6 +1,4 @@
 import plotly.express as px
-import plotly.graph_objects as go
-import pandas as pd
 
 
 COLORS = ["#4fc3f7", "#81c784", "#ffb74d", "#f06292", "#ce93d8"]
@@ -29,18 +27,34 @@ class VisualizationAgent:
         template = "plotly_dark"
 
         if chart_type == "grouped_bar" and color and color in df.columns:
-            fig = px.bar(df, x=x, y=y, color=color,
-                         barmode="group", title=title,
-                         template=template,
-                         color_discrete_sequence=COLORS)
+            fig = px.bar(
+                df,
+                x=x,
+                y=y,
+                color=color,
+                barmode="group",
+                title=title,
+                template=template,
+                color_discrete_sequence=COLORS,
+            )
         elif chart_type == "line":
-            fig = px.line(df, x=x, y=y, title=title,
-                          template=template,
-                          color_discrete_sequence=COLORS)
+            fig = px.line(
+                df,
+                x=x,
+                y=y,
+                title=title,
+                template=template,
+                color_discrete_sequence=COLORS,
+            )
         else:
-            fig = px.bar(df, x=x, y=y, title=title,
-                         template=template,
-                         color_discrete_sequence=COLORS)
+            fig = px.bar(
+                df,
+                x=x,
+                y=y,
+                title=title,
+                template=template,
+                color_discrete_sequence=COLORS,
+            )
 
         fig.update_layout(
             plot_bgcolor="#0f1117",

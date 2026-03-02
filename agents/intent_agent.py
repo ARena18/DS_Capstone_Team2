@@ -33,7 +33,7 @@ class IntentAgent:
         raw = self.llm(prompt=query, system=INTENT_SYSTEM)
         try:
             # Extract JSON from response
-            match = re.search(r'\{.*\}', raw, re.DOTALL)
+            match = re.search(r"\{.*\}", raw, re.DOTALL)
             if match:
                 return json.loads(match.group())
         except Exception:
@@ -46,7 +46,7 @@ class IntentAgent:
         entities = {}
 
         # Extract route number
-        route_match = re.search(r'route\s*(\d+)', q)
+        route_match = re.search(r"route\s*(\d+)", q)
         if route_match:
             entities["route"] = route_match.group(1)
 
@@ -62,27 +62,55 @@ class IntentAgent:
                 entities["time_period"] = tp.title()
 
         # Fare zone
-        zone_match = re.search(r'zone\s*(\d+)', q)
+        zone_match = re.search(r"zone\s*(\d+)", q)
         if zone_match:
             entities["zone"] = zone_match.group(1)
 
         # ZIP
-        zip_match = re.search(r'\b9\d{4}\b', q)
+        zip_match = re.search(r"\b9\d{4}\b", q)
         if zip_match:
             entities["zip"] = zip_match.group()
 
         # Intent type
         if any(w in q for w in ["predict", "forecast", "next week", "expected"]):
-            return {"type": "prediction", "sub_type": "load_forecast", "entities": entities}
+            return {
+                "type": "prediction",
+                "sub_type": "load_forecast",
+                "entities": entities,
+            }
         if any(w in q for w in ["crowd", "threshold", "overload", "capacity"]):
-            return {"type": "crowding_analysis", "sub_type": "threshold_check", "entities": entities}
+            return {
+                "type": "crowding_analysis",
+                "sub_type": "threshold_check",
+                "entities": entities,
+            }
         if any(w in q for w in ["delay", "late", "on-time", "adherence", "schedule"]):
-            return {"type": "schedule_adherence", "sub_type": "delay_analysis", "entities": entities}
+            return {
+                "type": "schedule_adherence",
+                "sub_type": "delay_analysis",
+                "entities": entities,
+            }
         if any(w in q for w in ["inbound", "outbound", "compare route", "vs"]):
-            return {"type": "route_comparison", "sub_type": "direction_compare", "entities": entities}
+            return {
+                "type": "route_comparison",
+                "sub_type": "direction_compare",
+                "entities": entities,
+            }
         if any(w in q for w in ["zone", "zip", "geographic", "map", "spatial"]):
-            return {"type": "geographic", "sub_type": "zone_analysis", "entities": entities}
+            return {
+                "type": "geographic",
+                "sub_type": "zone_analysis",
+                "entities": entities,
+            }
         if any(w in q for w in ["underperform", "low boarding", "low ridership"]):
-            return {"type": "stop_performance", "sub_type": "underperforming", "entities": entities}
+            return {
+                "type": "stop_performance",
+                "sub_type": "underperforming",
+                "entities": entities,
+            }
 
-        return {"type": "boardings_analysis", "sub_type": "top_stops", "entities": entities}
+        return {
+            "type": "boardings_analysis",
+            "sub_type": "top_stops",
+            "entities": entities,
+        }

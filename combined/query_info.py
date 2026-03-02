@@ -2,6 +2,7 @@
 
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import psycopg2
@@ -293,13 +294,14 @@ FROM stop_daily sd;
 """
 
 # --- Establish connection ---
-db_params = {   # connection parameters
+db_params = {  # connection parameters
     "host": os.getenv("SQL_HOST"),
     "database": os.getenv("SQL_DATABASE"),
     "user": os.getenv("SQL_USERNAME"),
     "password": os.getenv("SQL_PASSWORD"),
-    "port": os.getenv("SQL_PORT")
+    "port": os.getenv("SQL_PORT"),
 }
+
 
 def query_db(query_statement):
     try:
@@ -310,7 +312,7 @@ def query_db(query_statement):
             with conn.cursor() as cur:
                 # Execute query
                 cur.execute(query_statement)
-                
+
                 # Fetch result
                 result = cur.fetchall()
                 return result
@@ -318,7 +320,8 @@ def query_db(query_statement):
     except (Exception, psycopg2.Error) as error:
         print(f"Error connecting to the database: {error}")
         return f"Error: {error}"
-    
+
+
 """
                 else:
                     print("Attempting to generate a query...")

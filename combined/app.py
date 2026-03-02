@@ -5,11 +5,11 @@ import streamlit as st
 from st_copy import copy_button
 
 #from query_info import SCHEMA, query_db
-from planner_query_tools import top_routes_by_ridership, route_ridership_trend, busiest_stops, service_change_impact
+from planner_query_tools import *
 
 # --- Variables & Functions ---
-ALL_TOOLS = [top_routes_by_ridership, route_ridership_trend, busiest_stops, service_change_impact]
-TOOL_MAP = {t.name.lower(): t for t in ALL_TOOLS}
+ALL_TOOLS = [get_all_tools()]
+TOOL_MAP = {get_tool_names()}
 
 MAX_FIX_ATTEMPTS = 5
 
@@ -216,6 +216,20 @@ if prompt:
                 If the user asks about any other transit systems (e.g. New York transit), state 'I am not authorized to provide information not pertaining to King County Metro.' Do not answer about any other transit systems.
                 Respond 'I am not authorized to suggest updates, additions, or overwrites to the database.' if the user requests database updates, changes, additions, or overwrites.
                 
+                If a tool can answer the question, you MUST call the tool.
+                
+                If the user only specifes a day (e.g. on the 21st), respond 'Please specify the day, month, and year for the question or request.'
+                If the user only specifies a month (e.g in May), use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
+                Otherwise:
+                    If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
+                    If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+                    If the user does not specify a change_date yet it is needed for the tool, respond 'Please specify the service change date for the question or request'.
+                
+                The route_id should only be the number or name of the route (e.g. 2, 40, E Line).
+                If the user does not specify a route_id yet the tool needs it as an argument, respond 'Please specify the route for the question.' DO NOT USE UNSPECIFIED ROUTES.
+
+                Here is a description of all the tools:
+
                 top_routes_by_ridership returns the top routes by boardings for a date range.
                 Args:
                     start_date: Start date (YYYY-MM-DD)
@@ -244,18 +258,44 @@ if prompt:
                     route_id: Route identifier
                     change_date: Date of service change (YYYY-MM-DD)
                     window_days: Days before/after to compare (default 30)
-                
-                If a tool can answer the question, you MUST call the tool.
-                
-                If the user only specifes a day (e.g. on the 21st), respond 'Please specify the day, month, and year for the question or request.'
-                If the user only specifies a month (e.g in May), use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
-                Otherwise:
-                    If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
-                    If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
-                    If the user does not specify a change_date yet it is needed for the tool, respond 'Please specify the service change date for the question or request'.
-                
-                The route_id should only be the number or name of the route (e.g. 2, 40, E Line).
-                If the user does not specify a route_id yet the tool needs it as an argument, respond 'Please specify the route for the question.' DO NOT USE UNSPECIFIED ROUTES.
+
+                most_crowded_routes identifies routes with highest crowding (exceeding capacity).
+                Args:
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+                    time_period: Optional filter (e.g., 'AM Peak', 'PM Peak')
+                    min_load_factor: Minimum avg load factor % (default 80)
+                    top_n: Number of routes (default 10)
+
+                compare_routes compares multiple routes side-by-side.
+                Args:
+                    route_ids: Comma-separated route IDs (e.g., "40,7,E Line")
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+
+                declining_routes identifies routes with significant ridership decline.
+                Args:
+                    comparison_months: Months to compare (default 3)
+                    threshold_pct: Decline threshold as negative % (default -10)
+                    min_trips: Minimum trips to include (default 100)
+
+                crowding_by_time_period analyzes crowding patterns by time of day.
+                Args:
+                    route_id: Optional route filter
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+
+                route_by_direction compares inbound vs outbound performance for a route.
+                Args:
+                    route_id: Route identifier
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)
+
+                ridership_by_day_type analyzes ridership by day type (Weekday/Saturday/Sunday/Holiday).            
+                Args:
+                    route_id: Optional route filter
+                    start_date: Start date (YYYY-MM-DD)
+                    end_date: End date (YYYY-MM-DD)                    
             """
             systemMessages = [SystemMessage(systemInstructions),
                               HumanMessage(prompt)]

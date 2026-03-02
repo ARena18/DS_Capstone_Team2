@@ -296,6 +296,298 @@ class TransitQueryLibrary:
             }
         }
 
+    def get_most_crowded_routes(
+        self,
+        start_date: str,
+        end_date: str,
+        time_period: Optional[str] = None,
+        min_load_factor: float = 80.0,
+        top_n: int = 10
+    ) -> pd.DataFrame:
+        """
+        Identify routes with highest crowding (load exceeds capacity).
+        
+        Planner Questions:
+        - "Which routes are most crowded?"
+        - "Show me routes exceeding capacity during AM Peak"
+        - "What routes have the worst crowding?"
+        """
+        where_clauses = ["operation_date BETWEEN :start_date AND :end_date"]
+        params = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "min_load_factor": float(min_load_factor),
+            "top_n": int(top_n)
+        }
+        
+        if time_period is not None:
+            where_clauses.append("time_period = :time_period")
+            params["time_period"] = time_period
+        
+        where_sql = " AND ".join(where_clauses)
+        
+        query = text(f"""
+            SELECT 
+                service_rte_num as route,
+                COUNT(*) as total_trips,
+                COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) as crowded_trips,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) / COUNT(*), 2) as pct_crowded,
+                ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load,
+                ROUND(AVG((max_psngr_load::NUMERIC / crowding_threshold_nbr * 100)), 2) as avg_load_factor,
+                ROUND(AVG(psngr_boardings), 2) as avg_boardings
+            FROM trips
+            WHERE {where_sql}
+            GROUP BY service_rte_num
+            HAVING AVG((max_psngr_load::NUMERIC / crowding_threshold_nbr * 100)) >= :min_load_factor
+            ORDER BY avg_load_factor DESC
+            LIMIT :top_n
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, params)
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+        
+    def compare_routes(
+        self,
+        route_ids: list,
+        start_date: str,
+        end_date: str
+    ) -> pd.DataFrame:
+        """
+        Compare multiple routes side-by-side.
+        
+        Planner Questions:
+        - "Compare Route 40 and Route 7"
+        - "How do Routes 1, 2, and 3 compare?"
+        """
+        query = text("""
+            SELECT 
+                service_rte_num as route,
+                SUM(psngr_boardings) as total_boardings,
+                SUM(psngr_alightings) as total_alightings,
+                COUNT(*) as total_trips,
+                ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load,
+                COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) as crowded_trips,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) / COUNT(*), 2) as pct_crowded
+            FROM trips
+            WHERE service_rte_num = ANY(:route_ids)
+                AND operation_date BETWEEN :start_date AND :end_date
+            GROUP BY service_rte_num
+            ORDER BY total_boardings DESC
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, {
+                'route_ids': route_ids,
+                'start_date': start_date,
+                'end_date': end_date
+            })
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+    def identify_declining_routes(
+        self,
+        comparison_months: int = 3,
+        threshold_pct: float = -10.0,
+        min_trips: int = 100
+    ) -> pd.DataFrame:
+        """
+        Identify routes with significant ridership decline.
+        
+        Planner Questions:
+        - "Which routes are losing ridership?"
+        - "Show me declining routes over the last 3 months"
+        - "What routes need attention?"
+        """
+        # Get latest date from database
+        summary = self.get_summary()
+        latest_date = datetime.strptime(summary['latest_date'], '%Y-%m-%d').date()
+        
+        # Calculate date ranges
+        recent_start = latest_date - timedelta(days=comparison_months * 30)
+        previous_start = recent_start - timedelta(days=comparison_months * 30)
+        previous_end = recent_start - timedelta(days=1)
+        
+        query = text("""
+            WITH recent_period AS (
+                SELECT 
+                    service_rte_num,
+                    COUNT(*) as trip_count,
+                    ROUND(AVG(psngr_boardings), 2) as avg_boardings,
+                    ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load
+                FROM trips
+                WHERE operation_date BETWEEN :recent_start AND :latest_date
+                    AND day_code = 'WK'
+                GROUP BY service_rte_num
+            ),
+            previous_period AS (
+                SELECT 
+                    service_rte_num,
+                    ROUND(AVG(psngr_boardings), 2) as avg_boardings,
+                    ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load
+                FROM trips
+                WHERE operation_date BETWEEN :previous_start AND :previous_end
+                    AND day_code = 'WK'
+                GROUP BY service_rte_num
+            )
+            SELECT 
+                r.service_rte_num as route,
+                r.trip_count,
+                p.avg_boardings as previous_avg_boardings,
+                r.avg_boardings as recent_avg_boardings,
+                ROUND(((r.avg_boardings - p.avg_boardings) / p.avg_boardings * 100), 2) as boardings_pct_change,
+                p.avg_max_psngr_load as previous_load_factor,
+                r.avg_max_psngr_load as recent_load_factor,
+                ROUND((r.avg_max_psngr_load - p.avg_max_psngr_load), 2) as max_psngr_load_change
+            FROM recent_period r
+            JOIN previous_period p ON r.service_rte_num = p.service_rte_num
+            WHERE r.trip_count >= :min_trips
+                AND p.avg_boardings > 0
+                AND ((r.avg_boardings - p.avg_boardings) / p.avg_boardings * 100) < :threshold_pct
+            ORDER BY boardings_pct_change ASC
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, {
+                'latest_date': latest_date,
+                'recent_start': recent_start,
+                'previous_start': previous_start,
+                'previous_end': previous_end,
+                'threshold_pct': threshold_pct,
+                'min_trips': min_trips
+            })
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+    def get_crowding_by_time_period(
+        self,
+        route_id: Optional[str] = None,
+        start_date: str = None,
+        end_date: str = None
+    ) -> pd.DataFrame:
+        """
+        Analyze crowding patterns by time of day.
+        
+        Planner Questions:
+        - "When are routes most crowded?"
+        - "Show me crowding by time period for Route 40"
+        """
+        where_clauses = ["operation_date BETWEEN :start_date AND :end_date"]
+        params = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "route_id": route_id
+        }
+        
+        if route_id is not None:
+            where_clauses.append("service_rte_num = :route_id")
+        
+        where_sql = " AND ".join(where_clauses)
+        
+        query = text(f"""
+            SELECT 
+                time_period,
+                COUNT(*) as total_trips,
+                COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) as crowded_trips,
+                ROUND(100.0 * COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) / COUNT(*), 2) as pct_crowded,
+                ROUND(AVG(max_psngr_load),2) as avg_max_psngr_load,
+                ROUND(AVG(psngr_boardings), 2) as avg_boardings
+            FROM trips
+            WHERE {where_sql}
+            GROUP BY time_period
+            ORDER BY pct_crowded DESC
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, params)
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+        
+    def get_route_by_direction(
+        self,
+        route_id: str,
+        start_date: str,
+        end_date: str
+    ) -> pd.DataFrame:
+        """
+        Compare inbound vs outbound performance for a route.
+        
+        Planner Questions:
+        - "How does inbound vs outbound ridership compare for Route 40?"
+        - "Show me directional ridership for Route 7"
+        """
+        query = text("""
+            SELECT 
+                inbd_outbd_cd as direction,
+                CASE 
+                    WHEN inbd_outbd_cd = 'I' THEN 'Inbound'
+                    WHEN inbd_outbd_cd = 'O' THEN 'Outbound'
+                    ELSE 'Other'
+                END as direction_label,
+                SUM(psngr_boardings) as total_boardings,
+                COUNT(*) as total_trips,
+                ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load
+            FROM trips
+            WHERE service_rte_num = :route_id
+                AND operation_date BETWEEN :start_date AND :end_date
+            GROUP BY inbd_outbd_cd
+            ORDER BY total_boardings DESC
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, {
+                'route_id': route_id,
+                'start_date': start_date,
+                'end_date': end_date
+            })
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+    
+    def get_ridership_by_day_type(
+        self,
+        route_id: Optional[str] = None,
+        start_date: str = None,
+        end_date: str = None
+    ) -> pd.DataFrame:
+        """
+        Analyze ridership by day type (Weekday, Saturday, Sunday, Holiday).
+        
+        Planner Questions:
+        - "How does ridership vary by day type?"
+        - "Compare weekday, Saturday, and Sunday ridership"
+        """
+        where_clauses = ["operation_date BETWEEN :start_date AND :end_date"]
+        params = {
+            "start_date": start_date,
+            "end_date": end_date,
+            "route_id": route_id
+        }
+        
+        if route_id is not None:
+            where_clauses.append("service_rte_num = :route_id")
+        
+        where_sql = " AND ".join(where_clauses)
+        
+        query = text(f"""
+            SELECT 
+                day_code,
+                CASE 
+                    WHEN day_code = 'WK' THEN 'Weekday'
+                    WHEN day_code = 'SA' THEN 'Saturday'
+                    WHEN day_code = 'SU' THEN 'Sunday'
+                    WHEN day_code = 'HOL' THEN 'Holiday'
+                END as day_type,
+                COUNT(DISTINCT operation_date) as days,
+                COUNT(*) as total_trips,
+                SUM(psngr_boardings) as total_boardings,
+                ROUND(AVG(psngr_boardings), 2) as avg_boardings_per_trip,
+                ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load
+            FROM trips
+            WHERE {where_sql}
+            GROUP BY day_code
+            ORDER BY total_boardings DESC
+        """)
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(query, params)
+            return pd.DataFrame(result.fetchall(), columns=result.keys())
+
     # Helper funtion
     def get_summary(self) -> Dict[str, Any]:
         """

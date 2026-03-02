@@ -225,48 +225,40 @@ def service_change_impact(route_id: str, change_date: str, window_days: int = 30
 """
 
 @tool
-def most_crowded_routes(start_date: str, end_date: str, time_period: str = None, 
-                       min_load_factor: float = 80.0, top_n: int = 10) -> str:
+def get_overcrowded_routes(service_change_num: str, time_period: str = None, top_n: int = 10) -> str:
     """
-    Identify routes with highest crowding (exceeding capacity).
+    Identify overcrowded routes based on KCM definition
     
     Args:
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD)
+        service_change_num: Service change period identifier
         time_period: Optional filter (e.g., 'AM Peak', 'PM Peak')
-        min_load_factor: Minimum avg load factor % (default 80)
         top_n: Number of routes (default 10)
     """
     try:
         top_n = int(top_n)
-        min_load_factor = float(min_load_factor)
     except Exception:
         top_n = 10
-        min_load_factor = 80.0
 
     if time_period is not None:
         time_period = str(time_period).strip()
         if time_period == "":
             time_period = None
 
-    df = query_lib.get_most_crowded_routes(
-        start_date=start_date,
-        end_date=end_date,
+    df = query_lib.get_overcrowded_routes(
+        service_change_num=service_change_num,
         time_period=time_period,
-        min_load_factor=min_load_factor,
         top_n=top_n
     )
 
     if df is None or df.empty:
-        return f"No crowded routes found (load factor >= {min_load_factor}%) from {start_date} to {end_date}."
+        return f"No overcrowded routes found for service change {service_change_num}."
 
     time_filter = f"**Time Period:** {time_period}  \n" if time_period else "**Time Period:** All  \n"
 
     return (
-        f"### 🚨 Most Crowded Routes\n"
-        f"**Range:** {start_date} → {end_date}  \n"
+        f"### 🚨 Overcrowded Routes\n"
+        f"**Service Change:** {service_change_num}  \n\n"
         f"{time_filter}"
-        f"**Min Load Factor:** {min_load_factor}%  \n\n"
         f"{_df_to_str(df)}"
     )
 
@@ -444,7 +436,7 @@ ALL_TOOLS = [
     busiest_stops,
     service_change_impact,
     # New
-    most_crowded_routes,
+    get_overcrowded_routes,
     compare_routes,
     declining_routes,
     crowding_by_time_period,

@@ -290,29 +290,36 @@ class TransitQueryLibrary:
             }
         }
     
-    def get_most_crowded_routes(
+    def get_overcrowded_routes(
         self,
-        start_date: str,
-        end_date: str,
+        service_change_num: Optional[str] = None,
         time_period: Optional[str] = None,
-        min_load_factor: float = 80.0,
         top_n: int = 10
     ) -> pd.DataFrame:
         """
-        Identify routes with highest crowding (load exceeds capacity).
+        Identify routes with highest crowding using KCM's definition (Trips are identified as overcrowded 
+        if they have average maximum passenger loads higher than the passenger load threshold for the 
+        entire service change period.)
         
+        Note: 
+        Trip pattern = unique combination of (route, direction, start_time, day_code)
+        This matches KCM's methodology of averaging per trip pattern, not per individual trip.
+
         Planner Questions:
-        - "Which routes are most crowded?"
+        - "Which routes are most crowded for last service change?"
         - "Show me routes exceeding capacity during AM Peak"
         - "What routes have the worst crowding?"
         """
-        where_clauses = ["operation_date BETWEEN :start_date AND :end_date"]
+        where_clauses = []
         params = {
-            "start_date": start_date,
-            "end_date": end_date,
-            "min_load_factor": float(min_load_factor),
             "top_n": int(top_n)
         }
+        
+        if service_change_num is not None:
+            where_clauses.append("service_change_num = :service_change_num")
+            params["service_change_num"] = service_change_num
+        else:
+            raise ValueError("Must provide service_change_num")
         
         if time_period is not None:
             where_clauses.append("time_period = :time_period")
@@ -321,21 +328,68 @@ class TransitQueryLibrary:
         where_sql = " AND ".join(where_clauses)
         
         query = text(f"""
-            SELECT 
-                service_rte_num as route,
-                COUNT(*) as total_trips,
-                COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) as crowded_trips,
-                ROUND(100.0 * COUNT(*) FILTER (WHERE max_psngr_load > crowding_threshold_nbr) / COUNT(*), 2) as pct_crowded,
-                ROUND(AVG(max_psngr_load), 2) as avg_max_psngr_load,
-                ROUND(AVG((max_psngr_load::NUMERIC / crowding_threshold_nbr * 100)), 2) as avg_load_factor,
-                ROUND(AVG(psngr_boardings), 2) as avg_boardings
-            FROM trips
-            WHERE {where_sql}
-            GROUP BY service_rte_num
-            HAVING AVG((max_psngr_load::NUMERIC / crowding_threshold_nbr * 100)) >= :min_load_factor
-            ORDER BY avg_load_factor DESC
-            LIMIT :top_n
-        """)
+            WITH trip_patterns AS (
+                SELECT
+                    service_rte_num,
+                    inbd_outbd_cd,
+                    sched_start_time,
+                    service_change_num,
+                    day_code,
+                    AVG(max_psngr_load) AS avg_max_load,
+                    AVG(crowding_threshold_nbr) AS threshold,
+                    AVG(max_psngr_load) - AVG(crowding_threshold_nbr) as excess_load
+                FROM trips
+                WHERE {where_sql}
+                GROUP BY
+                    service_rte_num,
+                    inbd_outbd_cd,
+                    sched_start_time,
+                    service_change_num,
+                    day_code
+            ),
+            overcrowded_patterns AS (
+                SELECT *
+                FROM trip_patterns
+                WHERE avg_max_load > threshold
+            ),
+            route_summary AS (
+            SELECT
+                tp.service_rte_num,
+                COUNT(DISTINCT 
+                    CONCAT(tp.inbd_outbd_cd, '|', tp.sched_start_time)
+                ) as total_trips_count,
+                COUNT(DISTINCT 
+                    CASE WHEN op.service_rte_num IS NOT NULL 
+                    THEN CONCAT(tp.inbd_outbd_cd, '|', tp.sched_start_time)
+                    END
+                ) as overcrowded_trips,
+                ROUND(AVG(CASE WHEN op.service_rte_num IS NOT NULL 
+                          THEN op.avg_max_load END), 2) as avg_max_load_overcrowded,
+                ROUND(AVG(CASE WHEN op.service_rte_num IS NOT NULL 
+                          THEN op.threshold END), 2) as avg_threshold_overcrowded,
+                ROUND(AVG(CASE WHEN op.service_rte_num IS NOT NULL 
+                          THEN op.excess_load END), 2) as avg_excess_load
+            FROM trip_patterns tp
+            LEFT JOIN overcrowded_patterns op 
+                ON tp.service_rte_num = op.service_rte_num
+                AND tp.inbd_outbd_cd = op.inbd_outbd_cd
+                AND tp.sched_start_time = op.sched_start_time
+                AND tp.service_change_num = op.service_change_num
+            GROUP BY tp.service_rte_num
+        )
+        SELECT
+            service_rte_num AS route,
+            overcrowded_trips,
+            total_trips_count,
+            ROUND(100.0 * overcrowded_trips / NULLIF(total_trips_count, 0), 2) as pct_overcrowded,
+            avg_max_load_overcrowded as avg_max_load,
+            avg_threshold_overcrowded as avg_threshold,
+            avg_excess_load
+        FROM route_summary
+        WHERE overcrowded_trips > 0  -- Only show routes with overcrowding
+        ORDER BY overcrowded_trips DESC, pct_overcrowded DESC
+        LIMIT :top_n
+    """)
         
         with self.engine.connect() as conn:
             result = conn.execute(query, params)

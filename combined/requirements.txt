@@ -2,6 +2,7 @@ datetime
 langchain
 langchain-ollama
 pandas
+plotly
 python-dotenv
 streamlit
 st_copy

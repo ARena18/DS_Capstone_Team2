@@ -8,8 +8,7 @@ from st_copy import copy_button
 from planner_query_tools import *
 
 # --- Variables & Functions ---
-ALL_TOOLS = [get_all_tools()]
-TOOL_MAP = {get_tool_names()}
+TOOL_MAP = {tool.name.lower(): tool for tool in ALL_TOOLS}
 
 MAX_FIX_ATTEMPTS = 5
 

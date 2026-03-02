@@ -44,8 +44,8 @@ def extractQuery(response):
 
 # -- Configure the LLM ---
 llm = ChatOllama(
-    model="llama3.2",
-    #model="qwen3",
+    #model="llama3.2",
+    model="qwen3",
     temperature=0,
 ).bind_tools(ALL_TOOLS)
 

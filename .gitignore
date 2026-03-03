@@ -13,3 +13,5 @@ api/gemini/.env
 api/hf_mistral/.env
 ollama/langchain_tools/.env
 ollama/prompt_langchain/.env
+.python-version
+

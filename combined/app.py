@@ -14,7 +14,6 @@ from langchain_ollama import ChatOllama
 import pandas as pd
 import streamlit as st
 from st_copy import copy_button
-import uuid
 
 from visualization_agent import CHART_CONFIG, VisualizationAgent
 from planner_query_tools import *
@@ -211,11 +210,14 @@ def get_agent_result(user_input: str) -> dict:
 
     # Pick the first DataFrame and visualize it
     print("Handling visualization...")
-    fig = visualize(used_tool_name, chosen_df) if used_tool_name else None
-    if fig is None and used_tool_name:
-        print(f"Could not visualize result from tool '{used_tool_name}'.")
-    elif fig is None:
-        print("No tool was used, so no visualization will be generated.")
+    print(used_tool_name)
+    fig = visualize(used_tool_name, chosen_df) if chosen_df is not None else None
+    if fig is None:
+        if chosen_df is not None:
+            print(f"Could not visualize result from tool '{used_tool_name}'.")
+            print(chosen_df.head())
+        else:
+            print("The tool does not return a DataFrame, so no visualization will be generated.")
 
     return {"text": answer, "df": chosen_df, "fig": fig}
 

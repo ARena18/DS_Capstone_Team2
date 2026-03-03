@@ -1,6 +1,7 @@
 # app.py
 import os
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import streamlit as st
@@ -11,7 +12,9 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 client = genai.Client(api_key=API_KEY)
 
 # --- Configure Streamlit page ---
-st.set_page_config(page_title="King County Transit Chat", page_icon="🚌", layout="centered")
+st.set_page_config(
+    page_title="King County Transit Chat", page_icon="🚌", layout="centered"
+)
 st.title("🚌 Transit Data Chat Assistant")
 st.subheader("Your AI assistant for retrieving King Country Metro transit data")
 
@@ -144,10 +147,11 @@ st.markdown(
 if "messages" not in st.session_state:
     st.session_state.messages = [
         {
-            "role": "assistant", 
-            "content": "Hi! I'm your transit data assistant. Ask me anything about King County Metro transit routes. How can I help you today?"
+            "role": "assistant",
+            "content": "Hi! I'm your transit data assistant. Ask me anything about King County Metro transit routes. How can I help you today?",
         }
     ]
+
 
 def display_messages():
     """Display all messages in the chat history"""
@@ -156,13 +160,15 @@ def display_messages():
         with st.chat_message(author):
             st.write(msg["content"])
 
-def friendly_wrap(raw_text):    # not used currently
+
+def friendly_wrap(raw_text):  # not used currently
     """Add a friendly tone to AI responses"""
     return (
         "Great question! 🌱\n\n"
         f"{raw_text.strip()}\n\n"
         "Would you like me to elaborate on any part of this, or do you have other climate questions?"
     )
+
 
 # --- Display existing messages ---
 display_messages()
@@ -187,12 +193,12 @@ if prompt:
         try:
             response = client.models.generate_content(
                 model="gemini-3-flash-preview",
-                contents=f"You are a helpful, concise assistant focused on King County Metro. Please provide accurate, clear information about: {prompt}"
+                contents=f"You are a helpful, concise assistant focused on King County Metro. Please provide accurate, clear information about: {prompt}",
             )
 
             # Extract response text
             answer = response.text
-            #friendly_answer = friendly_wrap(answer)
+            # friendly_answer = friendly_wrap(answer)
 
         except Exception as e:
             answer = f"I'm sorry, I encountered an error: {e}. Please try asking your question again."

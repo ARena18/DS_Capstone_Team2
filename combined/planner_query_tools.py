@@ -111,7 +111,7 @@ def top_routes_by_ridership(
         f"**Date Range:** {start_date} → {end_date}  \n"
         f"{filter_text}\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -166,7 +166,7 @@ def route_ridership_trend(
         f"- Avg load factor = **{avg_load:.2f}**  \n\n"
         f"**First {min(len(df), max_rows)} rows:**\n\n"
         f"{shown.to_markdown(index=False)}"
-    )
+    ), df
 
 
 @tool
@@ -231,7 +231,7 @@ def busiest_stops(
         f"{route_line}"
         f"**Top N requested:** {top_n}  \n\n"
         f"{shown.to_markdown(index=False)}"
-    )
+    ), df
 
 
 @tool
@@ -262,30 +262,30 @@ def service_change_impact(
     after = result["after_period"]
     impact = result["impact"]
 
-    return f"""\
-### 📊 Service Change Impact — Route {route_id}
+    return (f"""\
+        ### 📊 Service Change Impact — Route {route_id}
 
-**Change Date:** {change_date}  
-**Window:** {window_days} days before/after  
+        **Change Date:** {change_date}  
+        **Window:** {window_days} days before/after  
 
-#### BEFORE
-- Trips: {before.get("trips", 0)}
-- Avg Boardings per Trip: {before.get("avg_boardings_per_trip", 0)}
-- Avg Max Passenger Load: {before.get("avg_max_psngr_load", 0)}
-- Crowded Trips: {before.get("crowded_trips", 0)}
+        #### BEFORE
+        - Trips: {before.get("trips", 0)}
+        - Avg Boardings per Trip: {before.get("avg_boardings_per_trip", 0)}
+        - Avg Max Passenger Load: {before.get("avg_max_psngr_load", 0)}
+        - Crowded Trips: {before.get("crowded_trips", 0)}
 
-#### AFTER
-- Trips: {after.get("trips", 0)}
-- Avg Boardings per Trip: {after.get("avg_boardings_per_trip", 0)}
-- Avg Max Passenger Load: {after.get("avg_max_psngr_load", 0)}
-- Crowded Trips: {after.get("crowded_trips", 0)}
+        #### AFTER
+        - Trips: {after.get("trips", 0)}
+        - Avg Boardings per Trip: {after.get("avg_boardings_per_trip", 0)}
+        - Avg Max Passenger Load: {after.get("avg_max_psngr_load", 0)}
+        - Crowded Trips: {after.get("crowded_trips", 0)}
 
-#### IMPACT
-- Boardings Change: {impact.get("boardings_change", 0)}
-- Percent Change: {impact.get("boardings_pct_change", 0)}%
-- Direction: {impact.get("direction", "n/a")}
-- Significant (>5%): {impact.get("significant", False)}
-"""
+        #### IMPACT
+        - Boardings Change: {impact.get("boardings_change", 0)}
+        - Percent Change: {impact.get("boardings_pct_change", 0)}%
+        - Direction: {impact.get("direction", "n/a")}
+        - Significant (>5%): {impact.get("significant", False)}
+    """), None
 
 
 @tool
@@ -328,7 +328,7 @@ def get_overcrowded_routes(
         f"**Service Change:** {service_change_num}  \n\n"
         f"{time_filter}"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -363,7 +363,7 @@ def compare_routes(
         f"**Routes:** {', '.join(route_list)}  \n"
         f"**Range:** {start_date} → {end_date}  \n\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -402,7 +402,7 @@ def declining_routes(
         f"**Threshold:** {threshold_pct}%  \n"
         f"**Min Trips:** {min_trips}  \n\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -441,7 +441,7 @@ def crowding_by_time_period(
         f"**Range:** {start_date} → {end_date}  \n"
         f"{route_line}\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -471,7 +471,7 @@ def route_by_direction(
         f"### ↔️ Directional Analysis — Route {route_id}\n"
         f"**Range:** {start_date} → {end_date}  \n\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 @tool
@@ -510,7 +510,7 @@ def ridership_by_day_type(
         f"**Range:** {start_date} → {end_date}  \n"
         f"{route_line}\n"
         f"{_df_to_str(df)}"
-    )
+    ), df
 
 
 # ================================================================
@@ -532,11 +532,9 @@ ALL_TOOLS = [
     ridership_by_day_type,
 ]
 
-
 def get_all_tools():
     """Return list of all available tools"""
     return ALL_TOOLS
-
 
 def get_tool_names():
     """Return list of all tool names"""

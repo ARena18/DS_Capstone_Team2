@@ -1,7 +1,70 @@
 import plotly.express as px
 
 
-COLORS = ["#4fc3f7", "#81c784", "#ffb74d", "#f06292", "#ce93d8"]
+COLORS = ["#81c784", "#4fc3f7", "#ffb74d", "#f06292", "#ce93d8"]
+
+CHART_CONFIG = {
+    "top_routes_by_ridership": {
+        "x": "route",
+        "y": "total_boardings",
+        "chart_type": "bar",
+        "title": "Top Routes by Ridership",
+    },
+    "route_ridership_trend": {
+        "x": "period",
+        "y": "total_boardings",
+        "chart_type": "line",
+        "title": "Ridership Trend Over Time",
+    },
+    "busiest_stops": {
+        "x": "stop_nm",
+        "y": "total_boardings",
+        "chart_type": "bar",
+        "title": "Busiest Stops",
+    },
+    "get_overcrowded_routes": {
+        "x": "route",
+        "y": "overcrowded_trips",
+        "chart_type": "bar",
+        "title": "Overcrowded Routes",
+    },
+    "compare_routes": {
+        "x": "route",
+        "y": "total_boardings",
+        "chart_type": "bar",
+        "title": "Route Comparison",
+    },
+    "declining_routes": {
+        "x": "route",
+        "y": "boardings_pct_change",
+        "chart_type": "bar",
+        "title": "Declining Routes (% Change)",
+    },
+    "crowding_by_time_period": {
+        "x": "time_period",
+        "y": "pct_crowded",
+        "chart_type": "bar",
+        "title": "Crowding by Time Period",
+    },
+    "route_by_direction": {
+        "x": "direction_label",
+        "y": "total_boardings",
+        "chart_type": "bar",
+        "title": "Ridership by Direction",
+    },
+    "ridership_by_day_type": {
+        "x": "day_type",
+        "y": "total_boardings",
+        "chart_type": "bar",
+        "title": "Ridership by Day Type",
+    },
+    "service_change_impact": {
+        "x": "period",
+        "y": "avg_boardings_per_trip",
+        "chart_type": "bar",
+        "title": "Service Change Impact",
+    },
+}
 
 
 class VisualizationAgent:
@@ -14,7 +77,6 @@ class VisualizationAgent:
         x = result.get("x")
         y = result.get("y")
         color = result.get("color")
-        title = result.get("title", "")
 
         if x not in df.columns or y not in df.columns:
             return None
@@ -33,7 +95,6 @@ class VisualizationAgent:
                 y=y,
                 color=color,
                 barmode="group",
-                title=title,
                 template=template,
                 color_discrete_sequence=COLORS,
             )
@@ -42,7 +103,6 @@ class VisualizationAgent:
                 df,
                 x=x,
                 y=y,
-                title=title,
                 template=template,
                 color_discrete_sequence=COLORS,
             )
@@ -51,17 +111,17 @@ class VisualizationAgent:
                 df,
                 x=x,
                 y=y,
-                title=title,
                 template=template,
                 color_discrete_sequence=COLORS,
             )
 
         fig.update_layout(
-            plot_bgcolor="#0f1117",
-            paper_bgcolor="#0f1117",
-            font=dict(color="#e8e8e8", family="IBM Plex Sans"),
-            title_font=dict(size=14, color="#4fc3f7"),
-            xaxis=dict(tickangle=-45),
+            plot_bgcolor="#f5f5da",
+            paper_bgcolor="#f5f5da",
+            font_color="#1a1a1a",
+            font=dict(size=30, color="#1a1a1a"),
+            xaxis=dict(title_font=dict(size=17), tickfont=dict(size=17), tickangle=-45),
+            yaxis=dict(title_font=dict(size=17), tickfont=dict(size=17)),
             margin=dict(l=40, r=20, t=50, b=120),
         )
         return fig

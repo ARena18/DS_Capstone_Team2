@@ -9,6 +9,13 @@ import pandas as pd
 from datetime import date, timedelta
 from unittest.mock import MagicMock
 
+import sys
+sys.modules.pop("planner_query_tools", None)
+sys.modules.pop("visualization_agent", None)
+
+import planner_query_tools
+from planner_query_tools import query_lib
+
 # ---------------------------------------------------------------------------
 # Minimal stubs so query_library.py can be imported without SQLAlchemy
 # ---------------------------------------------------------------------------

@@ -9,6 +9,11 @@ import types
 from unittest.mock import MagicMock, patch
 import pandas as pd
 
+sys.modules.pop("planner_query_tools", None)
+sys.modules.pop("visualization_agent", None)
+
+import planner_query_tools
+
 # ---------------------------------------------------------------------------
 # Stub heavy dependencies before import
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ api/cerebras/
 .venv/
 ollama/langchain_tools/__pycache__/
 ollama/prompt_langchain/__pycache__/
+tests/__pycache__/
 
 # ignore .env files
 api/gemini/.env

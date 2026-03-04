@@ -86,11 +86,11 @@ def get_agent_result(user_input: str) -> dict:
         If a tool can answer the question, you MUST call the tool.
         
         If the user only specifes a day (e.g. on the 21st), respond 'Please specify the day, month, and year for the question or request.'
-        If the user only specifies a month (e.g in May), use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
-        Otherwise:
-            If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
-            If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
-            If the user does not specify a change_date yet it is needed for the tool, respond 'Please specify the service change date for the question or request'.
+        If the user does not specify a start_date, use January 1st, 2025 as the baseline for the tool arguments.
+        If the user does not specify an end_date, you MUST use December 31st, 2025 as the baseline for the tool arguments.
+        If the user only specifies a month (e.g in May) without mentioning to start (e.g. from May) or end (e.g. until May) at that month, use the first day of the month for the year 2025 as the start_date and the last day of the month for the year 2025 as the end_date.
+
+        If the user does not specify a change_date yet it is needed for the tool, respond 'Please specify the service change date for the question or request'.
         
         The route_id should only be the number or name of the route (e.g. 2, 40, E Line).
         If the user does not specify a route_id yet the tool needs it as an argument, respond 'Please specify the route for the question.' DO NOT USE UNSPECIFIED ROUTES.

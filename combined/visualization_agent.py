@@ -1,6 +1,5 @@
 import plotly.express as px
 
-
 COLORS = ["#81c784", "#4fc3f7", "#ffb74d", "#f06292", "#ce93d8"]
 
 CHART_CONFIG = {
@@ -65,7 +64,6 @@ CHART_CONFIG = {
         "title": "Service Change Impact",
     },
 }
-
 
 class VisualizationAgent:
     def generate(self, result: dict):

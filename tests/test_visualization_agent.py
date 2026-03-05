@@ -207,42 +207,38 @@
 #             assert c.startswith("#"), f"Expected hex colour, got {c}"
 
 # tests/test_visualization_agent.py
-# 100% coverage for visualization_agent.py
+# 100% coverage for updated_combined/visualization_agent.py
 # ─────────────────────────────────────────────────────────────────────────────
 
 import sys
 import os
-import pytest
+
 import pandas as pd
-from unittest.mock import patch, MagicMock
 
-# Remove any stub so we get the real implementation
-sys.modules.pop("visualization_agent", None)
-
-# Now import normally
-from visualization_agent import VisualizationAgent
-
-import planner_query_tools
-
-# ── Ensure the combined/ folder is on the path ────────────────────────────────
-COMBINED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "combined")
+# ── 1. Path setup FIRST — before any import of visualization_agent ────────────
+COMBINED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "updated_combined")
 if COMBINED_DIR not in sys.path:
     sys.path.insert(0, COMBINED_DIR)
 
+# ── 2. Remove any stale stub so we get the real implementation ────────────────
+sys.modules.pop("visualization_agent", None)
+
+# ── 3. Now import ─────────────────────────────────────────────────────────────
 from visualization_agent import VisualizationAgent  # noqa: E402
+
 
 # ── Convenience ───────────────────────────────────────────────────────────────
 def _agent():
     return VisualizationAgent()
 
+
 def _df(**kwargs):
-    """One-row DataFrame from kwargs."""
     return pd.DataFrame([kwargs])
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TestColors
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TestColorsConstant
+# =============================================================================
 
 class TestColorsConstant:
     def test_colors_is_list(self):
@@ -253,16 +249,16 @@ class TestColorsConstant:
             assert c.startswith("#"), f"{c} is not a hex colour"
             assert len(c) == 7
 
-    def test_colors_class_attribute_equals_module_constant(self):
-        assert VisualizationAgent.COLORS == VisualizationAgent.COLORS
-
     def test_colors_has_five_entries(self):
         assert len(VisualizationAgent.COLORS) == 5
 
+    def test_colors_same_via_instance(self):
+        assert _agent().COLORS == VisualizationAgent.COLORS
 
-# ═════════════════════════════════════════════════════════════════════════════
+
+# =============================================================================
 # TestChartConfig
-# ══════════════════════
+# =============================================================================
 
 class TestChartConfig:
     EXPECTED_TOOLS = [
@@ -296,9 +292,9 @@ class TestChartConfig:
                 assert cfg["chart_type"] == "bar", f"{tool} should be bar"
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestVisualizationAgentGenerate
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestVisualizationAgentGenerate:
 
@@ -314,53 +310,44 @@ class TestVisualizationAgentGenerate:
         assert _agent().generate({"data": pd.DataFrame(), "x": "a", "y": "b"}) is None
 
     def test_returns_none_when_x_column_missing(self):
-        df = _df(y_col=1)
-        assert _agent().generate({"data": df, "x": "x_col", "y": "y_col"}) is None
+        assert _agent().generate({"data": _df(y_col=1), "x": "x_col", "y": "y_col"}) is None
 
     def test_returns_none_when_y_column_missing(self):
-        df = _df(x_col="A")
-        assert _agent().generate({"data": df, "x": "x_col", "y": "y_col"}) is None
+        assert _agent().generate({"data": _df(x_col="A"), "x": "x_col", "y": "y_col"}) is None
 
     def test_returns_none_when_both_columns_missing(self):
-        df = _df(other=1)
-        assert _agent().generate({"data": df, "x": "x_col", "y": "y_col"}) is None
+        assert _agent().generate({"data": _df(other=1), "x": "x_col", "y": "y_col"}) is None
 
     def test_returns_none_when_x_is_none(self):
-        df = _df(a="A", b=1)
-        assert _agent().generate({"data": df, "x": None, "y": "b"}) is None
+        assert _agent().generate({"data": _df(a="A", b=1), "x": None, "y": "b"}) is None
 
     def test_returns_none_when_y_is_none(self):
-        df = _df(a="A", b=1)
-        assert _agent().generate({"data": df, "x": "a", "y": None}) is None
+        assert _agent().generate({"data": _df(a="A", b=1), "x": "a", "y": None}) is None
 
-    # ── Bar chart (default) ───────────────────────────────────────────────────
+    # ── Bar chart ─────────────────────────────────────────────────────────────
 
     def test_default_bar_chart(self):
-        df = _df(route="40", total_boardings=500)
-        fig = _agent().generate({"data": df, "x": "route", "y": "total_boardings"})
+        fig = _agent().generate({"data": _df(route="40", total_boardings=500),
+                                  "x": "route", "y": "total_boardings"})
         assert fig is not None
 
     def test_missing_chart_type_defaults_to_bar(self):
-        df = _df(route="7", total_boardings=100)
-        fig = _agent().generate({"data": df, "x": "route", "y": "total_boardings", "title": "T"})
+        fig = _agent().generate({"data": _df(route="7", total_boardings=100),
+                                  "x": "route", "y": "total_boardings", "title": "T"})
         assert fig is not None
 
     def test_unknown_chart_type_falls_back_to_bar(self):
-        df = _df(route="E Line", total_boardings=300)
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "chart_type": "radar",   # unsupported → plain bar
-        })
+        fig = _agent().generate({"data": _df(route="E Line", total_boardings=300),
+                                  "x": "route", "y": "total_boardings",
+                                  "chart_type": "radar"})
         assert fig is not None
 
     # ── Line chart ────────────────────────────────────────────────────────────
 
     def test_line_chart_type(self):
-        df = _df(period="2025-01", total_boardings=1000)
-        fig = _agent().generate({
-            "data": df, "x": "period", "y": "total_boardings",
-            "chart_type": "line", "title": "Trend",
-        })
+        fig = _agent().generate({"data": _df(period="2025-01", total_boardings=1000),
+                                  "x": "period", "y": "total_boardings",
+                                  "chart_type": "line", "title": "Trend"})
         assert fig is not None
 
     # ── Grouped bar ───────────────────────────────────────────────────────────
@@ -370,27 +357,20 @@ class TestVisualizationAgentGenerate:
             {"route": "40", "total_boardings": 500, "direction": "I"},
             {"route": "40", "total_boardings": 400, "direction": "O"},
         ])
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "chart_type": "grouped_bar", "color": "direction",
-        })
+        fig = _agent().generate({"data": df, "x": "route", "y": "total_boardings",
+                                  "chart_type": "grouped_bar", "color": "direction"})
         assert fig is not None
 
     def test_grouped_bar_missing_color_falls_back_to_plain_bar(self):
-        df = _df(route="7", total_boardings=200)
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "chart_type": "grouped_bar", "color": "nonexistent_col",
-        })
-        assert fig is not None   # falls back to plain bar
+        fig = _agent().generate({"data": _df(route="7", total_boardings=200),
+                                  "x": "route", "y": "total_boardings",
+                                  "chart_type": "grouped_bar", "color": "nonexistent_col"})
+        assert fig is not None
 
     def test_grouped_bar_no_color_key_falls_back_to_plain_bar(self):
-        df = _df(route="7", total_boardings=200)
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "chart_type": "grouped_bar",
-            # no "color" key at all
-        })
+        fig = _agent().generate({"data": _df(route="7", total_boardings=200),
+                                  "x": "route", "y": "total_boardings",
+                                  "chart_type": "grouped_bar"})
         assert fig is not None
 
     # ── Long-label truncation ─────────────────────────────────────────────────
@@ -398,22 +378,15 @@ class TestVisualizationAgentGenerate:
     def test_bar_chart_long_labels_truncated_for_object_dtype(self):
         long_label = "A" * 50
         df = _df(**{"stop_nm": long_label, "total_boardings": 10})
-        fig = _agent().generate({
-            "data": df, "x": "stop_nm", "y": "total_boardings",
-            "chart_type": "bar",
-        })
+        fig = _agent().generate({"data": df, "x": "stop_nm", "y": "total_boardings",
+                                  "chart_type": "bar"})
         assert fig is not None
-        # The label in the figure should be at most 30 chars
-        x_vals = fig.data[0].x
-        assert all(len(str(v)) <= 30 for v in x_vals)
+        assert all(len(str(v)) <= 30 for v in fig.data[0].x)
 
-    def test_non_object_string_dtype_not_truncated(self):
-        # Integer x-axis — truncation branch should be skipped
+    def test_non_object_dtype_x_not_truncated(self):
         df = pd.DataFrame([{"period": 202501, "total_boardings": 100}])
-        fig = _agent().generate({
-            "data": df, "x": "period", "y": "total_boardings",
-            "chart_type": "bar",
-        })
+        fig = _agent().generate({"data": df, "x": "period", "y": "total_boardings",
+                                  "chart_type": "bar"})
         assert fig is not None
 
     def test_numeric_x_column_not_truncated(self):
@@ -423,27 +396,21 @@ class TestVisualizationAgentGenerate:
 
     # ── Layout ────────────────────────────────────────────────────────────────
 
-    def test_update_layout_called_on_every_chart(self):
-        df = _df(route="40", total_boardings=500)
-        fig = _agent().generate({"data": df, "x": "route", "y": "total_boardings"})
-        # plot_bgcolor should be transparent
-        assert fig.layout.plot_bgcolor == "rgba(0,0,0,0)"
+    def test_transparent_backgrounds(self):
+        fig = _agent().generate({"data": _df(route="40", total_boardings=500),
+                                  "x": "route", "y": "total_boardings"})
+        assert fig.layout.plot_bgcolor  == "rgba(0,0,0,0)"
         assert fig.layout.paper_bgcolor == "rgba(0,0,0,0)"
 
     def test_title_applied_to_figure(self):
-        df = _df(route="40", total_boardings=500)
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "title": "My Custom Title",
-        })
+        fig = _agent().generate({"data": _df(route="40", total_boardings=500),
+                                  "x": "route", "y": "total_boardings",
+                                  "title": "My Custom Title"})
         assert "My Custom Title" in fig.layout.title.text
 
     def test_empty_title_does_not_raise(self):
-        df = _df(route="40", total_boardings=500)
-        fig = _agent().generate({
-            "data": df, "x": "route", "y": "total_boardings",
-            "title": "",
-        })
+        fig = _agent().generate({"data": _df(route="40", total_boardings=500),
+                                  "x": "route", "y": "total_boardings", "title": ""})
         assert fig is not None
 
     # ── Original DataFrame not mutated ────────────────────────────────────────
@@ -451,29 +418,23 @@ class TestVisualizationAgentGenerate:
     def test_original_df_not_mutated_by_truncation(self):
         long_label = "B" * 50
         df = _df(**{"stop_nm": long_label, "total_boardings": 10})
-        original_label = df["stop_nm"].iloc[0]
+        original = df["stop_nm"].iloc[0]
         _agent().generate({"data": df, "x": "stop_nm", "y": "total_boardings"})
-        assert df["stop_nm"].iloc[0] == original_label   # unchanged
+        assert df["stop_nm"].iloc[0] == original
 
     # ── Multi-row DataFrames ──────────────────────────────────────────────────
 
     def test_multi_row_bar_chart(self):
-        df = pd.DataFrame([
-            {"route": str(i), "total_boardings": i * 100}
-            for i in range(1, 6)
-        ])
+        df = pd.DataFrame([{"route": str(i), "total_boardings": i * 100}
+                            for i in range(1, 6)])
         fig = _agent().generate({"data": df, "x": "route", "y": "total_boardings"})
         assert fig is not None
         assert len(fig.data[0].x) == 5
 
     def test_multi_row_line_chart(self):
-        df = pd.DataFrame([
-            {"period": f"2025-{i:02d}", "total_boardings": i * 50}
-            for i in range(1, 7)
-        ])
-        fig = _agent().generate({
-            "data": df, "x": "period", "y": "total_boardings",
-            "chart_type": "line",
-        })
+        df = pd.DataFrame([{"period": f"2025-{i:02d}", "total_boardings": i * 50}
+                            for i in range(1, 7)])
+        fig = _agent().generate({"data": df, "x": "period", "y": "total_boardings",
+                                  "chart_type": "line"})
         assert fig is not None
         assert len(fig.data[0].x) == 6

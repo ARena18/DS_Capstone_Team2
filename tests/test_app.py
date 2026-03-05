@@ -388,125 +388,183 @@
 # tests/test_app.py
 # Full coverage test suite for combined/app.py
 # ─────────────────────────────────────────────────────────────────────────────
+# tests/test_app.py
+# Full coverage test suite for updated_combined/app.py
+# ─────────────────────────────────────────────────────────────────────────────
 
 import sys
 import os
 import types
-import importlib
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
 
-# ── Minimal stubs so app.py can be imported without a running Streamlit server
-# or real database connection. All heavy dependencies are mocked BEFORE import.
+# ── 1. Add updated_combined/ to path FIRST ───────────────────────────────────
+COMBINED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "updated_combined")
+if COMBINED_DIR not in sys.path:
+    sys.path.insert(0, COMBINED_DIR)
 
-# ── stub: streamlit ───────────────────────────────────────────────────────────
-st_mock = MagicMock()
-st_mock.session_state = {}   # plain dict; app code uses attribute access via MagicMock
-# Make session_state behave like a real object with attribute access
+# ── 2. Register ALL stubs BEFORE importing app ───────────────────────────────
+
+# streamlit
 class _FakeSessionState(dict):
     def __getattr__(self, k):
         try:
             return self[k]
         except KeyError:
             raise AttributeError(k)
+
     def __setattr__(self, k, v):
         self[k] = v
+
     def __contains__(self, k):
         return super().__contains__(k)
 
+
+st_mock = MagicMock()
 st_mock.session_state = _FakeSessionState()
 sys.modules["streamlit"] = st_mock
 
-# ── stub: st_copy ─────────────────────────────────────────────────────────────
+# st_copy
 st_copy_mock = MagicMock()
 sys.modules["st_copy"] = st_copy_mock
 
-# ── stub: langchain_core ──────────────────────────────────────────────────────
-lc_core = types.ModuleType("langchain_core")
-lc_messages = types.ModuleType("langchain_core.messages")
+# langchain_core
+_lc_core = types.ModuleType("langchain_core")
+_lc_messages = types.ModuleType("langchain_core.messages")
+_lc_tools_mod = types.ModuleType("langchain_core.tools")
+_lc_tools_mod.tool = lambda f=None, **kw: (f if f else lambda fn: fn)
+
 
 class _FakeSystemMessage:
-    def __init__(self, content): self.content = content
+    def __init__(self, content):
+        self.content = content
+
 
 class _FakeHumanMessage:
-    def __init__(self, content): self.content = content
+    def __init__(self, content):
+        self.content = content
 
-lc_messages.SystemMessage = _FakeSystemMessage
-lc_messages.HumanMessage  = _FakeHumanMessage
-lc_core.messages = lc_messages
-sys.modules["langchain_core"]          = lc_core
-sys.modules["langchain_core.messages"] = lc_messages
 
-# ── stub: langchain_ollama ────────────────────────────────────────────────────
-lo_mock = MagicMock()
-sys.modules["langchain_ollama"] = lo_mock
+_lc_messages.SystemMessage = _FakeSystemMessage
+_lc_messages.HumanMessage = _FakeHumanMessage
+_lc_core.messages = _lc_messages
+_lc_core.tools = _lc_tools_mod
+sys.modules["langchain_core"] = _lc_core
+sys.modules["langchain_core.messages"] = _lc_messages
+sys.modules["langchain_core.tools"] = _lc_tools_mod
 
-# ── stub: visualization_agent ────────────────────────────────────────────────
-va_mod = types.ModuleType("visualization_agent")
+# langchain_ollama
+sys.modules["langchain_ollama"] = MagicMock()
+
+# sqlalchemy
+_sa = types.ModuleType("sqlalchemy")
+_sa_engine = types.ModuleType("sqlalchemy.engine")
+_sa.create_engine = MagicMock(return_value=MagicMock())
+_sa.text = lambda sql: sql
+_sa_engine.Engine = object
+_sa.engine = _sa_engine
+sys.modules["sqlalchemy"] = _sa
+sys.modules["sqlalchemy.engine"] = _sa_engine
+
+# dotenv
+_dotenv = types.ModuleType("dotenv")
+_dotenv.load_dotenv = lambda: None
+sys.modules["dotenv"] = _dotenv
+
+# visualization_agent stub
+_va_mod = types.ModuleType("visualization_agent")
+
+_FAKE_CHART_CONFIG = {
+    "top_routes_by_ridership": {
+        "x": "route", "y": "total_boardings",
+        "chart_type": "bar", "title": "Top Routes",
+    },
+    "route_ridership_trend": {
+        "x": "period", "y": "total_boardings",
+        "chart_type": "line", "title": "Trend",
+    },
+    "busiest_stops": {
+        "x": "stop_nm", "y": "total_boardings",
+        "chart_type": "bar", "title": "Stops",
+    },
+    "get_overcrowded_routes": {
+        "x": "route", "y": "overcrowded_trips",
+        "chart_type": "bar", "title": "Crowded",
+    },
+    "compare_routes": {
+        "x": "route", "y": "total_boardings",
+        "chart_type": "bar", "title": "Compare",
+    },
+    "declining_routes": {
+        "x": "route", "y": "boardings_pct_change",
+        "chart_type": "bar", "title": "Decline",
+    },
+    "crowding_by_time_period": {
+        "x": "time_period", "y": "pct_crowded",
+        "chart_type": "bar", "title": "Crowding",
+    },
+    "route_by_direction": {
+        "x": "direction_label", "y": "total_boardings",
+        "chart_type": "bar", "title": "Direction",
+    },
+    "ridership_by_day_type": {
+        "x": "day_type", "y": "total_boardings",
+        "chart_type": "bar", "title": "Day Type",
+    },
+    "service_change_impact": {
+        "x": "period", "y": "avg_boardings_per_trip",
+        "chart_type": "bar", "title": "Impact",
+    },
+}
+
+
 class _FakeVisualizationAgent:
-    CHART_CONFIG = {
-        "top_routes_by_ridership": {"x": "route",          "y": "total_boardings", "chart_type": "bar",  "title": "Top Routes"},
-        "route_ridership_trend":   {"x": "period",         "y": "total_boardings", "chart_type": "line", "title": "Trend"},
-        "busiest_stops":           {"x": "stop_nm",        "y": "total_boardings", "chart_type": "bar",  "title": "Stops"},
-        "get_overcrowded_routes":  {"x": "route",          "y": "overcrowded_trips","chart_type": "bar", "title": "Crowded"},
-        "compare_routes":          {"x": "route",          "y": "total_boardings", "chart_type": "bar",  "title": "Compare"},
-        "declining_routes":        {"x": "route",          "y": "boardings_pct_change","chart_type":"bar","title":"Decline"},
-        "crowding_by_time_period": {"x": "time_period",    "y": "pct_crowded",     "chart_type": "bar",  "title": "Crowding"},
-        "route_by_direction":      {"x": "direction_label","y": "total_boardings", "chart_type": "bar",  "title": "Direction"},
-        "ridership_by_day_type":   {"x": "day_type",       "y": "total_boardings", "chart_type": "bar",  "title": "Day Type"},
-        "service_change_impact":   {"x": "period",         "y": "avg_boardings_per_trip","chart_type":"bar","title":"Impact"},
-    }
+    CHART_CONFIG = _FAKE_CHART_CONFIG
+
     def generate(self, cfg):
         return MagicMock(name="FakeFig")
 
-va_mod.VisualizationAgent = _FakeVisualizationAgent
-sys.modules["visualization_agent"] = va_mod
 
-# ── stub: planner_query_tools ─────────────────────────────────────────────────
-pqt_mod = types.ModuleType("planner_query_tools")
+_va_mod.VisualizationAgent = _FakeVisualizationAgent
+_va_mod.CHART_CONFIG = _FAKE_CHART_CONFIG
+sys.modules["visualization_agent"] = _va_mod
 
+# planner_query_tools stub
+_pqt_mod = types.ModuleType("planner_query_tools")
 _fake_tool = MagicMock()
 _fake_tool.name = "top_routes_by_ridership"
+_pqt_mod.ALL_TOOLS = [_fake_tool]
+_pqt_mod.query_lib = MagicMock()
+sys.modules["planner_query_tools"] = _pqt_mod
 
-pqt_mod.ALL_TOOLS  = [_fake_tool]
-pqt_mod.query_lib  = MagicMock()
-
-sys.modules["planner_query_tools"] = pqt_mod
-
-# ── Now import the app ────────────────────────────────────────────────────────
-# Add combined/ folder to path so `import app` resolves combined/app.py
-COMBINED_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "combined")
-if COMBINED_DIR not in sys.path:
-    sys.path.insert(0, COMBINED_DIR)
-
+# ── 3. Now import app ─────────────────────────────────────────────────────────
 import app  # noqa: E402
 
-# Wire the alias the tests use
-app._auto_visualize = app.visualize   # test_app expectation
+# Wire alias expected by some tests
+app._auto_visualize = app.visualize
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Helpers
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 def _make_df(**kwargs):
-    """Build a one-row DataFrame from keyword arguments."""
     return pd.DataFrame([kwargs])
 
 
 def _reset_session():
     app.st.session_state.clear()
-    app.st.session_state["messages"]     = []
-    app.st.session_state["agent_log"]    = []
+    app.st.session_state["messages"] = []
+    app.st.session_state["agent_log"] = []
     app.st.session_state["staged_query"] = ""
-    app.st.session_state["processing"]   = False
+    app.st.session_state["processing"] = False
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestConstants
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestConstants:
     def test_tool_map_keys_are_lowercase(self):
@@ -538,9 +596,9 @@ class TestConstants:
         assert not app.BLOCKED_KEYWORDS.search("show me route 40")
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TestVisualize  (_visualize / visualize alias)
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TestAutoVisualize
+# =============================================================================
 
 class TestAutoVisualize:
     def test_returns_none_for_none_tool(self):
@@ -554,37 +612,31 @@ class TestAutoVisualize:
 
     def test_unknown_tool_returns_none(self):
         df = _make_df(route="1", total_boardings=100)
-        result = app._visualize("nonexistent_tool_xyz", df)
-        assert result is None
+        assert app._visualize("nonexistent_tool_xyz", df) is None
 
     def test_known_tool_with_correct_columns_returns_figure(self):
         df = _make_df(route="40", total_boardings=500)
-        result = app._visualize("top_routes_by_ridership", df)
-        assert result is not None
+        assert app._visualize("top_routes_by_ridership", df) is not None
 
     def test_known_tool_missing_columns_falls_back_to_str_num(self):
-        # DataFrame has str + numeric but not the expected column names
         df = _make_df(label="A", value=10)
-        result = app._visualize("top_routes_by_ridership", df)
-        assert result is not None
+        assert app._visualize("top_routes_by_ridership", df) is not None
 
     def test_known_tool_no_str_col_returns_none(self):
         df = pd.DataFrame({"a": [1], "b": [2]})
-        result = app._visualize("top_routes_by_ridership", df)
-        assert result is None
+        assert app._visualize("top_routes_by_ridership", df) is None
 
     def test_known_tool_no_num_col_returns_none(self):
         df = pd.DataFrame({"a": ["x"], "b": ["y"]})
-        result = app._visualize("top_routes_by_ridership", df)
-        assert result is None
+        assert app._visualize("top_routes_by_ridership", df) is None
 
     def test_visualize_alias_equals_private(self):
         assert app.visualize is app._visualize
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestGetAgentResult
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestGetAgentResult:
     def setup_method(self):
@@ -592,16 +644,15 @@ class TestGetAgentResult:
 
     def _make_llm_response(self, content="hello", tool_calls=None):
         r = MagicMock()
-        r.content    = content
+        r.content = content
         r.tool_calls = tool_calls or []
         return r
 
-    # ── plain text path ───────────────────────────────────────────────────────
     def test_plain_text_response_returned(self):
         app.llm.invoke.return_value = self._make_llm_response("Plain answer")
         result = app.get_agent_result("any question")
         assert result["text"] == "Plain answer"
-        assert result["df"]  is None
+        assert result["df"] is None
         assert result["fig"] is None
 
     def test_llm_error_returns_error_text(self):
@@ -610,7 +661,6 @@ class TestGetAgentResult:
         assert "LLM error" in result["text"]
         app.llm.invoke.side_effect = None
 
-    # ── rejected / guard paths ────────────────────────────────────────────────
     def test_not_authorized_skips_tool_calls(self):
         tc = [{"name": "top_routes_by_ridership", "args": {}, "id": "1"}]
         app.llm.invoke.return_value = self._make_llm_response(
@@ -627,15 +677,12 @@ class TestGetAgentResult:
         result = app.get_agent_result("show ridership")
         assert "Please specify" in result["text"]
 
-    # ── tool execution path ───────────────────────────────────────────────────
     def test_tool_call_executes_and_returns_text(self):
         fake_df = _make_df(route="40", total_boardings=1000)
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.return_value = ("Route 40 had 1000 boardings.", fake_df)
-
         tc = [{"name": "top_routes_by_ridership", "args": {"start_date": "2025-01-01"}, "id": "3"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         result = app.get_agent_result("top routes")
         assert "Route 40" in result["text"]
         assert result["df"] is not None
@@ -649,10 +696,8 @@ class TestGetAgentResult:
     def test_tool_exception_returns_error_text(self):
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.side_effect = ValueError("db error")
-
         tc = [{"name": "top_routes_by_ridership", "args": {}, "id": "5"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         result = app.get_agent_result("top routes")
         assert "Tool error" in result["text"]
         _fake_tool.invoke.side_effect = None
@@ -660,10 +705,8 @@ class TestGetAgentResult:
     def test_tool_df_none_still_returns_text(self):
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.return_value = ("No data found.", None)
-
         tc = [{"name": "top_routes_by_ridership", "args": {}, "id": "6"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         result = app.get_agent_result("top routes")
         assert result["df"] is None
         assert result["fig"] is None
@@ -671,20 +714,16 @@ class TestGetAgentResult:
     def test_tool_empty_df_not_assigned_to_chosen(self):
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.return_value = ("empty", pd.DataFrame())
-
         tc = [{"name": "top_routes_by_ridership", "args": {}, "id": "7"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         result = app.get_agent_result("top routes")
         assert result["df"] is None
 
     def test_agent_log_appended_on_tool_call(self):
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.return_value = ("ok", None)
-
         tc = [{"name": "top_routes_by_ridership", "args": {"x": 1}, "id": "8"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         before = len(app.st.session_state["agent_log"])
         app.get_agent_result("top routes")
         assert len(app.st.session_state["agent_log"]) == before + 1
@@ -693,10 +732,8 @@ class TestGetAgentResult:
         fake_df = _make_df(route="7", total_boardings=200)
         _fake_tool.name = "top_routes_by_ridership"
         _fake_tool.invoke.return_value = ("data", fake_df)
-
         tc = [{"name": "top_routes_by_ridership", "args": {}, "id": "9"}]
         app.llm.invoke.return_value = self._make_llm_response("", tc)
-
         result = app.get_agent_result("top routes")
         assert result["fig"] is not None
 
@@ -706,9 +743,9 @@ class TestGetAgentResult:
         assert result["text"] == "answer"
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestDisplayMessages
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestDisplayMessages:
     def setup_method(self):
@@ -718,7 +755,7 @@ class TestDisplayMessages:
 
     def test_renders_text_for_each_message(self):
         app.st.session_state["messages"] = [
-            {"role": "user",      "content": "Hello"},
+            {"role": "user", "content": "Hello"},
             {"role": "assistant", "content": "Hi there"},
         ]
         app.display_messages()
@@ -740,9 +777,7 @@ class TestDisplayMessages:
         app.st.plotly_chart.assert_not_called()
 
     def test_no_chart_when_fig_key_missing(self):
-        app.st.session_state["messages"] = [
-            {"role": "user", "content": "question"}
-        ]
+        app.st.session_state["messages"] = [{"role": "user", "content": "question"}]
         app.display_messages()
         app.st.plotly_chart.assert_not_called()
 
@@ -768,25 +803,20 @@ class TestDisplayMessages:
         assert "&lt;script&gt;" in rendered
 
     def test_ampersand_escaped(self):
-        app.st.session_state["messages"] = [
-            {"role": "user", "content": "a & b"}
-        ]
+        app.st.session_state["messages"] = [{"role": "user", "content": "a & b"}]
         app.display_messages()
         rendered = str(app.st.markdown.call_args_list)
         assert "&amp;" in rendered
 
-    def test_empty_messages_no_calls(self):
+    def test_empty_messages_no_chart(self):
         app.st.session_state["messages"] = []
         app.st.markdown.reset_mock()
         app.display_messages()
-        # Only the CSS/header markdowns run at module level — display_messages
-        # itself should add zero calls for an empty list.
-        # We verify plotly was never called.
         app.st.plotly_chart.assert_not_called()
 
     def test_copy_button_called_per_message(self):
         app.st.session_state["messages"] = [
-            {"role": "user",      "content": "q1"},
+            {"role": "user", "content": "q1"},
             {"role": "assistant", "content": "a1"},
         ]
         st_copy_mock.copy_button.reset_mock()
@@ -794,9 +824,9 @@ class TestDisplayMessages:
         assert st_copy_mock.copy_button.call_count == 2
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestBlockedKeywords
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestBlockedKeywords:
     @pytest.mark.parametrize("kw", [
@@ -815,9 +845,9 @@ class TestBlockedKeywords:
         assert not app.BLOCKED_KEYWORDS.search("show me the top 10 routes")
 
 
-# ═════════════════════════════════════════════════════════════════════════════
-# TestSecurityAttackTests dict
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
+# TestSecurityAttackTests
+# =============================================================================
 
 class TestSecurityAttackTests:
     def test_sql_injection_entry_exists(self):
@@ -830,14 +860,12 @@ class TestSecurityAttackTests:
         assert app.SECURITY_ATTACK_TESTS["Empty input"] == ""
 
     def test_get_with_missing_key_returns_empty_string(self):
-        # The app uses .get(selected_test, "") — verify same behaviour
-        val = app.SECURITY_ATTACK_TESTS.get("nonexistent_key", "")
-        assert val == ""
+        assert app.SECURITY_ATTACK_TESTS.get("nonexistent_key", "") == ""
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestVisualizeAlias
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestVisualizeAlias:
     def test_alias_is_same_object(self):
@@ -851,9 +879,9 @@ class TestVisualizeAlias:
         assert app.visualize("unknown_tool_abc", df) is None
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestExampleQueries
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestExampleQueries:
     def test_has_six_entries(self):
@@ -864,13 +892,12 @@ class TestExampleQueries:
             assert q.strip() != ""
 
     def test_contains_ridership_query(self):
-        joined = " ".join(app.EXAMPLE_QUERIES).lower()
-        assert "ridership" in joined
+        assert "ridership" in " ".join(app.EXAMPLE_QUERIES).lower()
 
 
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # TestSystemPrompt
-# ═════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 class TestSystemPrompt:
     def test_mentions_king_county_metro(self):

@@ -1,9 +1,11 @@
 import os
+import sys
 import pandas as pd
 from dotenv import load_dotenv
 from typing import Optional
 from sqlalchemy import create_engine
 from langchain_core.tools import tool
+import streamlit as st  # module-level: stub is already in sys.modules when tests run
 
 from query_library import TransitQueryLibrary
 
@@ -29,7 +31,7 @@ def _build_engine():
 _engine = _build_engine()
 query_lib = TransitQueryLibrary(
     _engine
-)  # expects db_engine in constructor:contentReference[oaicite:2]{index=2}
+)
 
 DEFAULT_START_DATE = "2025-01-01"
 DEFAULT_END_DATE = "2025-12-31"
@@ -69,9 +71,9 @@ def top_routes_by_ridership(
 
     user_prompt_lower = ""
     try:
-        import streamlit as st
-
-        user_prompt_lower = st.session_state.messages[-1]["content"].lower()
+        ss = st.session_state
+        msgs = ss["messages"] if isinstance(ss, dict) else ss.messages
+        user_prompt_lower = msgs[-1]["content"].lower()
     except Exception:
         pass
 

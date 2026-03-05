@@ -1,11 +1,10 @@
 # query_info.py
 
+import psycopg2
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
-
-import psycopg2
 
 # --- Declare schema string to prompt LLM
 SCHEMA = """

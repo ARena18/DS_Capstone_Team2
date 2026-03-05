@@ -3,23 +3,21 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Directory Setup ───────────────────────────────────────────────────────────
-import sys
-import os
-
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
-
-# ── Imports ───────────────────────────────────────────────────────────────────
-import re
-import pandas as pd
-import streamlit as st
 from st_copy import copy_button
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_ollama import ChatOllama
 
 from visualization_agent import VisualizationAgent
 from planner_query_tools import ALL_TOOLS, query_lib
+import sys
+import os
+import re
+import pandas as pd
+import streamlit as st
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 TOOL_MAP = {tool.name.lower(): tool for tool in ALL_TOOLS}

@@ -15,7 +15,7 @@ import pandas as pd
 import streamlit as st
 from st_copy import copy_button
 
-from visualization_agent import CHART_CONFIG, VisualizationAgent
+from combined.visualization_agent_old_1 import CHART_CONFIG, VisualizationAgent
 from planner_query_tools import *
 
 # ── Variables & Functions ─────────────────────────────────────────────────────────────────

@@ -7,6 +7,11 @@ api/cerebras/
 .venv/
 ollama/langchain_tools/__pycache__/
 ollama/prompt_langchain/__pycache__/
+<<<<<<< Updated upstream
+=======
+updated_combined/__pycache__/
+combined/__pycache__/
+>>>>>>> Stashed changes
 tests/__pycache__/
 
 # ignore .env files
@@ -15,4 +20,5 @@ api/hf_mistral/.env
 ollama/langchain_tools/.env
 ollama/prompt_langchain/.env
 .python-version
-
+.coverage
+coverage.xml

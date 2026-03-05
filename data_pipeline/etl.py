@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 import pandas as pd  # type: ignore
 import argparse
 from pathlib import Path
-from __future__ import annotations
 from database import DatabaseManager  # type: ignore
 
 """

@@ -533,5 +533,24 @@ with st.sidebar:
                 st.error(f"❌ Blocked — Dangerous keyword(s): {found}")
             else:
                 st.success("✅ Passed — Input looks safe")
+        # Manual input test
+        st.markdown("**Or type your own:**")
+        custom_input = st.text_input("Custom test input:", key="sec_custom_input", placeholder="Type anything...")
+        if st.button("▶ Test Custom", key="sec_custom_btn", use_container_width=True) and custom_input:
+            import re
+            BLOCKED = re.compile(
+                r"\b(DROP|DELETE|UPDATE|INSERT|TRUNCATE|ALTER|EXEC|EXECUTE"
+                r"|UNION|CREATE|REPLACE|GRANT|REVOKE|pg_read_file)\b",
+                re.IGNORECASE,
+            )
+            if not custom_input.strip():
+                st.error("❌ Blocked — Input is empty")
+            elif len(custom_input) > 2000:
+                st.error(f"❌ Blocked — Too long ({len(custom_input)} chars)")
+            elif BLOCKED.search(custom_input):
+                found = BLOCKED.findall(custom_input)
+                st.error(f"❌ Blocked — Dangerous keyword: {found}")
+            else:
+                st.success("✅ Passed — Input would proceed to pipeline")
 
 visualize = _visualize
